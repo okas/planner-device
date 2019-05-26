@@ -1,6 +1,10 @@
 #include <Arduino.h>
 #include <cmath>
+#include <cstring>
 #include <string>
+#include <type_traits>
+#include <vector>
+#include <stdlib.h>
 #include <EEPROM.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
@@ -8,38 +12,46 @@
 
 using namespace std;
 
+char iotDeviceId[31];
+const uint8_t outputPins[] = {5, 4};
+const size_t lenOutPins = sizeof(outputPins) / sizeof(uint8_t);
+float outputStates[lenOutPins];
+
 /* EEPROM addresses */
-unsigned int devStateAddr;
-unsigned int mqttClientIdAddr;
+unsigned int iotDeviceIdAddr;
+unsigned int outputStateAddrs[lenOutPins];
 
-float deviceState;
-const uint8_t pin_DEVICE = 5;
-
-const char *STA_WIFI_KEY = {"hellohello"};
+const char *STA_WIFI_KEY = "hellohello";
 const char *MQTT_SERVER = "broker.hivemq.com";
 const unsigned int MQTT_PORT = 1883;
 const char *mqttUser = "";
 const char *mqttPassword = "";
-// char mqttClientId[31] = {"6530917364161053000"};
-char mqttClientId[31];
 
+char topicBase[60];
+const char *cmndState = "state";
+const char *cmndSetState = "set-state";
 const char *topicApiPresent = "saartk/api/present";
-#define CMND "/cmnd/"
-const char *cmndState = CMND "state/";
-const char *cmndSetState = CMND "set-state/";
-string topicBase;
 
 WiFiClient espClient;
 PubSubClient mqttClient;
-
 WebSocketsServer webSocket(81);
+
+/* Helpers -- */
 
 union UnionFloatByte {
   float f;
   byte b[sizeof f];
 };
 
-/* Helpers -- */
+float bufferToFloat(byte *buffer, unsigned int length)
+{
+  UnionFloatByte temp;
+  for (size_t i = 0; i < length; i++)
+  {
+    temp.b[i] = buffer[i];
+  }
+  return temp.f;
+}
 
 vector<string> strsplit(char *phrase, char *delimiter)
 {
@@ -67,40 +79,36 @@ void setup()
   Serial.begin(115200);
   initStatesFromEEPROM();
   setupHardware();
-  if (!wifiStationConnect())
+  if (wifiStationConnect() && setTopicBase())
   {
-    // ToDo if websocket do not receive any connections within... 1-2 minutes, then go back tu
-    // Wifi reconnection loop. Maybe in void loop() ?
-    Serial.print("Setting up soft-AP ... ");
-    boolean result = WiFi.softAP(WiFi.hostname().c_str(), STA_WIFI_KEY, 9, false, 1);
-    if (result == true)
-    {
-      Serial.println("Ready");
-      webSocketInit();
-    }
-    else
-    {
-      Serial.println("Failed!");
-      return;
-    }
+    mqttInit();
   }
   else
   {
-    if (setTopicBase())
-    {
-      mqttInit();
-    }
-    else
-    { // ToDo go to WIFI SOFT AP mode to gather mqtt client id.
-    }
+    WiFi.disconnect();
+    gotoIotInitMode();
   }
 }
 
-void webSocketInit()
+void gotoIotInitMode()
 {
-  Serial.println("Setting WebSocket server for IoT device initialization ... ");
-  webSocket.onEvent(webSocketEvent);
-  webSocket.begin();
+  // ToDo if websocket do not receive any connections within... 1-2 minutes, then go back tu
+  // Wifi reconnection loop. Maybe in void loop() ?
+  Serial.print("Setting up soft-AP fo IoT initialization ... ");
+  boolean result = WiFi.softAP(WiFi.hostname().c_str(), STA_WIFI_KEY, 9, false, 1);
+  if (result == true)
+  {
+    Serial.print("Soft-AP IP address = ");
+    Serial.println(WiFi.softAPIP());
+    Serial.println("Ready");
+    Serial.println("Setting up WebSocket server for IoT device initialization ... ");
+    webSocket.onEvent(webSocketEvent);
+    webSocket.begin();
+  }
+  else
+  {
+    Serial.println("SoftAP startup failed! Hopefully restart helps...");
+  }
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
@@ -155,21 +163,26 @@ void wsGetCurrentState(uint8_t num, string &subject)
   payload += "\n";
   payload += WiFi.SSID();
   payload += "\n";
-  payload += mqttClientId;
+  payload += iotDeviceId;
+  for (size_t i = 0; i < lenOutPins; i++)
+  {
+    payload += "\n";
+    payload += i;
+  }
   webSocket.sendTXT(num, payload);
 }
 
 void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
 {
-  const char *newMqttClientId = payloadTokens[3].c_str();
-  Serial.printf("* - newMqttClientId: \"%s\"\n", newMqttClientId);
-  bool clientIdNeedsChange = strlen(newMqttClientId) < 1 || strcmp(newMqttClientId, mqttClientId) != 0;
+  const char *newIotClientId = payloadTokens[3].c_str();
+  bool clientIdNeedsChange = strlen(newIotClientId) < 1 || strcmp(newIotClientId, iotDeviceId) != 0;
+  Serial.printf("* - newIotClientId: \"%s\"\n", newIotClientId);
   Serial.print("* - clientIdNeedsChange: ");
   Serial.print(clientIdNeedsChange);
   Serial.println();
   if (clientIdNeedsChange)
   {
-    wsMqttClientIdChange(newMqttClientId);
+    wsMqttClientIdChange(newIotClientId);
   }
   bool isConnected = wifiStationConnect(payloadTokens[1].c_str(),
                                         payloadTokens[2].c_str());
@@ -186,14 +199,12 @@ void wsMqttClientIdChange(const char *clientId)
   {
     mqttClient.disconnect();
   }
-  memset(mqttClientId, 0, sizeof(mqttClientId));
-  strncat(mqttClientId, clientId, sizeof(mqttClientId));
-  Serial.printf("* - mqttClientId AFTER memcpy: \"%s\"\n", mqttClientId);
-  Serial.printf("* - mqttClientIdAddr for memcpy: \"%d\"\n", mqttClientIdAddr);
-  EEPROM.put(mqttClientIdAddr, mqttClientId);
+  memset(iotDeviceId, 0, sizeof(iotDeviceId));
+  strncat(iotDeviceId, clientId, sizeof(iotDeviceId));
+  EEPROM.put(iotDeviceIdAddr, iotDeviceId);
   EEPROM.commit();
+  // ToDo  before, disconnect MQTT clients to notify device lost to API.
   setTopicBase();
-  Serial.printf("* - topicBase AFTER setTopicBase(): \"%s\"\n", topicBase.c_str());
 }
 
 void wsRespondSetInitValuesState(uint8_t num, string &subject, bool isWifiConnected)
@@ -214,55 +225,65 @@ String wsResponseBase(string &subject)
 
 void setupHardware()
 {
-  pinMode(pin_DEVICE, OUTPUT);
-  analogWrite(pin_DEVICE, round(deviceState * 1024));
+  for (size_t i = 0; i < lenOutPins; i++)
+  {
+    pinMode(outputPins[i], OUTPUT);
+    analogWrite(outputPins[i], round(outputStates[i] * 1024));
+  }
 }
 
 void initStatesFromEEPROM()
 {
   size_t eepromSize = calcEEPROMAddresses();
   EEPROM.begin(eepromSize);
-  EEPROM.get(devStateAddr, deviceState);
-  if (isnan(deviceState))
-  { // init to get rid of 0xFF
-    deviceState = 0.0f;
-    EEPROM.put(devStateAddr, deviceState);
-  }
-  EEPROM.get(mqttClientIdAddr, mqttClientId);
-  size_t len = sizeof(mqttClientId) / sizeof(*mqttClientId);
-  for (size_t i = 0; i < len; i++)
+  /* Init Actuator states from EEPROM to variable (array) */
+  for (size_t i = 0; i < lenOutPins; i++)
   {
-    if ((byte)mqttClientId[i] == 255)
-    { // init to get rid of any 0xFF
-      memset(mqttClientId, 0, len);
-      EEPROM.put(mqttClientIdAddr, mqttClientId);
+    EEPROM.get(outputStateAddrs[i], outputStates[i]);
+    if (isnan(outputStates[i]))
+    { /* init to get rid of 0xFF */
+      outputStates[i] = 0.0f;
+      EEPROM.put(outputStateAddrs[i], outputStates[i]);
+    }
+  }
+  EEPROM.get(iotDeviceIdAddr, iotDeviceId);
+  for (byte b : iotDeviceId)
+  {
+    if (b == 255)
+    { /* init to get rid of any 0xFF */
+      memset(iotDeviceId, 0, sizeof(iotDeviceId));
+      EEPROM.put(iotDeviceIdAddr, iotDeviceId);
       break;
     }
   }
+  /* In case .put() was called */
+  EEPROM.commit();
 }
 
 size_t calcEEPROMAddresses()
 {
-  devStateAddr = 0;
-  mqttClientIdAddr = devStateAddr + sizeof(deviceState);
-  size_t size = mqttClientIdAddr + sizeof(mqttClientId) / sizeof(*mqttClientId);
+  iotDeviceIdAddr = 0;
+  size_t size = sizeof(iotDeviceId);
+  size_t outStateValueSize = sizeof(decay<decltype(outputStates)>::type);
+  for (size_t i = 0; i < lenOutPins; i++)
+  {
+    outputStateAddrs[i] = size;
+    size += outStateValueSize;
+  }
   return size;
 }
 
 bool setTopicBase()
 {
-  if (strlen(mqttClientId) == 0)
+  if (strlen(iotDeviceId) == 0)
   {
     Serial.println("- - provided MQTT ClientId is empty, cannot set topic base!");
     return false;
   }
-  if (topicBase.length() > 0)
-  {
-    topicBase.clear();
-  }
-  topicBase = "saartk/device/lamp/";
-  topicBase += mqttClientId;
-  Serial.printf("- - topicBase [result] is : \"%s\"\n", topicBase.c_str());
+  memset(topicBase, 0, sizeof(topicBase));
+  strcpy(topicBase, "saartk/device/lamp/");
+  strcat(topicBase, iotDeviceId);
+  Serial.printf("- - topicBase [result] is : \"%s\"\n", topicBase);
   return true;
 }
 
@@ -312,18 +333,20 @@ void mqttInit()
   mqttClient.setCallback(onMessage);
   mqttConnect();
   mqttPublishPresent();
-  mqttSubscribe();
+  mqttSubscriber();
 }
 
 void mqttConnect()
 {
-  string lastWillTopic = topicBase;
-  lastWillTopic += "/lost";
-  Serial.printf("- - lastWillTopic is : \"%s\"\n", lastWillTopic.c_str());
+  const char *lost = "/lost";
+  char lastWillTopic[strlen(topicBase) + strlen(lost) + 1];
+  strcpy(lastWillTopic, topicBase);
+  strcat(lastWillTopic, lost);
+  Serial.printf("- - lastWillTopic is : \"%s\"\n", lastWillTopic);
   while (!mqttClient.connected())
   {
     Serial.println(" Connecting to MQTT...");
-    if (mqttClient.connect(mqttClientId, mqttUser, mqttPassword, lastWillTopic.c_str(), 0, false, ""))
+    if (mqttClient.connect(iotDeviceId, mqttUser, mqttPassword, lastWillTopic, 0, false, ""))
     {
       Serial.println(" MQTT connected!");
     }
@@ -338,29 +361,66 @@ void mqttConnect()
 
 void mqttPublishPresent()
 {
-  string topicPresent = topicBase;
-  topicPresent += "/present";
-  char payload[30];
-  snprintf(payload, sizeof payload, R"({"state":%.3f})", deviceState);
-  mqttClient.publish(topicPresent.c_str(), payload);
-  Serial.printf("- - topicPresent is : \"%s\"\n", topicPresent.c_str());
+  const char *present = "/present";
+  char topicPresent[strlen(topicBase) + strlen(present) + 1];
+  strcpy(topicPresent, topicBase);
+  strcat(topicPresent, present);
+  /* 15 is legth of JSON stucture as of current implementation.
+     16 is max byte length of pin object. */
+  char payload[15 + (16 * lenOutPins)];
+  mqttGeneratePresentPayload(payload);
+  mqttClient.publish(topicPresent, payload);
+  Serial.printf("- - topicPresent is : \"%s\"\n", topicPresent);
   Serial.printf("- - payload is : \"%s\"\n", payload);
 }
 
-void mqttSubscribe()
+void mqttGeneratePresentPayload(char *payload)
 {
-  string topicCommand = topicBase;
-  topicCommand += cmndState;
-  topicCommand += "+";
-  Serial.printf(" topicCommand 1: \"%s\"\n", topicCommand.c_str());
-  mqttClient.subscribe(topicCommand.c_str());
-  topicCommand.clear();
-  topicCommand = topicBase;
-  topicCommand += cmndSetState;
-  topicCommand += "+";
-  Serial.printf(" topicCommand 2: \"%s\"\n", topicCommand.c_str());
-  mqttClient.subscribe(topicCommand.c_str());
+  strcpy(payload, R"({"outputs":[)");
+  for (size_t i = 0; i < lenOutPins; i++)
+  {
+    if (i > 0)
+    {
+      strcat(payload, ",");
+    }
+    char dev[16];
+    sprintf(dev, R"({"%d":%.3f})", i, outputStates[i]);
+    strcat(payload, dev);
+  }
+  strcat(payload, "]}");
+}
+
+void mqttSubscriber()
+{
+  Serial.printf(" subscribing to following topics: \n");
+  for (size_t i = 0; i < lenOutPins; i++)
+  {
+    mqttSubscribeOutputToCommand(i, cmndState);
+    mqttSubscribeOutputToCommand(i, cmndSetState);
+  }
+  Serial.printf("  api related: \"%s\"\n", topicApiPresent);
   mqttClient.subscribe(topicApiPresent);
+}
+
+void mqttSubscribeOutputToCommand(size_t outputIndex, const char *command)
+{
+  char topicCommand[256];
+  generateSubscriptionForOutput(topicCommand, outputIndex, command);
+  mqttClient.subscribe(topicCommand);
+  Serial.printf("  command topic: \"%s\"\n", topicCommand);
+}
+
+void generateSubscriptionForOutput(char *buffer, size_t outputIndex, const char *command)
+{
+  char indexBuff[33];
+  itoa(outputIndex, indexBuff, 10);
+  strcpy(buffer, topicBase);
+  strcat(buffer, "/");
+  strcat(buffer, indexBuff);
+  strcat(buffer, "/cmnd/");
+  strcat(buffer, command);
+  strcat(buffer, "/");
+  strcat(buffer, "+");
 }
 
 void onMessage(char *topic, byte *payload, unsigned int length)
@@ -369,7 +429,7 @@ void onMessage(char *topic, byte *payload, unsigned int length)
   commandMessageHandler(topic, payload, length);
 }
 
-void logMessage(char *topic, byte *payload, unsigned int length)
+void logMessage(char *topic, byte *payload, size_t length)
 {
   Serial.println(">>>>> Message:");
   Serial.printf(" topic: \"%s\"\n", topic);
@@ -378,7 +438,7 @@ void logMessage(char *topic, byte *payload, unsigned int length)
   Serial.println("<<<<<");
 }
 
-void printBuffer(const char *msg, byte *buffer, unsigned int length)
+void printBuffer(const char *msg, byte *buffer, size_t length)
 {
   Serial.printf("%s<", msg);
   for (unsigned int i = 0; i < length; i++)
@@ -392,48 +452,103 @@ void printBuffer(const char *msg, byte *buffer, unsigned int length)
   Serial.println(">");
 }
 
-void commandMessageHandler(char *topic, byte *payload, unsigned int length)
+void commandMessageHandler(char *topic, byte *payload, size_t length)
 {
-  string strTopic = topic;
-  if (strstr(topic, cmndSetState))
+  const vector<string> topicTokens = strsplit(topic, "/");
+  if (topicTokens[1] == "api")
   {
-    setDeviceState(payload, length);
+    // ToDo: api present...
   }
-  else if (strstr(topic, topicApiPresent))
+  else if (topicTokens[6] == cmndState)
   {
-    return; // ToDo: api present...
+    int8_t idIdx = findOutputIndex(topicTokens);
+    publishResponseDeviceState(idIdx, topicTokens);
   }
-  else if (!strstr(topic, cmndState))
+  else if (topicTokens[6] == cmndSetState)
+  {
+    cmndSetStateHandler(topicTokens, payload, length);
+  }
+  else
   {
     Serial.printf("- - Bad topic, unknown command! End handler.\n");
     return;
   }
-  publishResponseDeviceState(strTopic);
 }
 
-void setDeviceState(byte *buffer, unsigned int length)
+void cmndSetStateHandler(const vector<string> topicTokens, byte *buffer, size_t length)
 {
-  UnionFloatByte temp;
-  for (int i = 0; i < length; i++)
+  int8_t idIdx = findOutputIndex(topicTokens);
+  if (idIdx < -1)
   {
-    temp.b[i] = buffer[i];
+    Serial.println("Topic don't contain known output index. End new setting the state!");
+    return;
   }
-  deviceState = temp.f;
-  analogWrite(pin_DEVICE, round(deviceState * 1024));
-  EEPROM.put(devStateAddr, deviceState);
-  EEPROM.commit();
-  Serial.printf("- - set value: \"%f\"\n", deviceState);
+  float state = bufferToFloat(buffer, length);
+  if (idIdx == -1)
+  {
+    for (size_t i = 0; i < lenOutPins; i++)
+    {
+      setStateAndSave(i, state);
+    }
+  }
+  else
+  {
+    setStateAndSave(idIdx, state);
+  }
+  publishResponseDeviceState(idIdx, topicTokens);
 }
 
-void publishResponseDeviceState(string &strTopic)
+int8_t findOutputIndex(const vector<string> topicTokens)
 {
-  const char *srch = "/cmnd/";
-  string responseTopic = strTopic.replace(strTopic.find(srch) + 1, strlen(srch) - 2, "resp");
-  byte buffer[sizeof(deviceState)];
-  *(float *)(buffer) = deviceState; // convert float to bytes
-  Serial.printf("- - responseTopic: \"%s\".\n", responseTopic.c_str());
-  printBuffer("- - responsePayload bytes: ", buffer, sizeof(buffer));
-  mqttClient.publish(responseTopic.c_str(), buffer, sizeof(buffer));
+  string x = topicTokens[4];
+  if (x.length() == 0)
+  { /* all devices/indexes */
+    return -1;
+  }
+  if (x == "0")
+  {
+    return 0;
+  }
+  unsigned int idx = atoi(x.c_str());
+  if (idx < 0 || idx > lenOutPins - 1)
+  {
+    return -2;
+  }
+  return (int8_t)idx;
+}
+
+void setStateAndSave(int8_t outputIdx, float state)
+{
+  outputStates[outputIdx] = state;
+  analogWrite(outputPins[outputIdx], round(outputStates[outputIdx] * 1024));
+  EEPROM.put(outputStateAddrs[outputIdx], outputStates[outputIdx]);
+  EEPROM.commit();
+  Serial.printf("- - set GPIO PIN value: \"%d\"=\"%f\"\n", outputPins[outputIdx], outputStates[outputIdx]);
+}
+
+void publishResponseDeviceState(int8_t outputIdx, const vector<string> topicTokens)
+{
+  // ToDo handle JSON responses as well
+  char *responseTopic = createResponseTopic(topicTokens);
+  byte payload[sizeof(outputStates[outputIdx])];
+  *(float *)(payload) = outputStates[outputIdx]; // convert float to bytes
+  Serial.printf("- - responseTopic: \"%s\".\n", responseTopic);
+  printBuffer("- - responsePayload bytes: ", payload, sizeof(payload));
+  mqttClient.publish(responseTopic, payload, sizeof(payload));
+}
+
+char *createResponseTopic(const vector<string> topicTokens)
+{
+  char result[sizeof(topicTokens) + topicTokens.size()];
+  for (size_t i = 0; i < topicTokens.size(); i++)
+  {
+    if (i > 0)
+    {
+      strcat(result, "/");
+    }
+    strcat(result, i != 5 ? topicTokens[i].c_str() : "resp");
+  }
+  return result;
 }
 
 void loop()
