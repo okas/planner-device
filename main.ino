@@ -12,16 +12,25 @@
 
 using namespace std;
 
+const char *IOT_TYPE = "generic-2out";
+
+struct Output_t
+{
+  const uint8_t pin;
+  float state;
+  unsigned int addressState;
+  bool active;
+  unsigned int addressActive;
+};
+
 char iotDeviceId[31];
-const uint8_t outputPins[] = {5, 4};
-const size_t lenOutPins = sizeof(outputPins) / sizeof(uint8_t);
-float outputStates[lenOutPins];
+unsigned int iotDeviceIdAddres;
+Output_t outDevices[] = {{.pin = 5}, {.pin = 4}};
+const size_t lenOutputs = sizeof(outDevices) / sizeof(Output_t);
 
-/* EEPROM addresses */
-unsigned int iotDeviceIdAddr;
-unsigned int outputStateAddrs[lenOutPins];
-
+char wifiHostname[11];
 const char *STA_WIFI_KEY = "hellohello";
+
 const char *MQTT_SERVER = "broker.hivemq.com";
 const unsigned int MQTT_PORT = 1883;
 const char *mqttUser = "";
@@ -72,14 +81,28 @@ vector<string> strsplit(char *phrase, char *delimiter)
   return ret;
 }
 
+size_t getActiveOutputCount()
+{
+  size_t result = 0;
+  for (Output_t device : outDevices)
+  {
+    if (device.active)
+    {
+      result++;
+    }
+  }
+  return result;
+}
+
 /* -- Helpers */
 
 void setup()
 {
   Serial.begin(115200);
-  initStatesFromEEPROM();
+  eepromInitialize();
   setupHardware();
-  if (wifiStationConnect() && setTopicBase())
+  setWifiHostname();
+  if (getActiveOutputCount() && wifiStationConnect() && setTopicBase())
   {
     mqttInit();
   }
@@ -94,11 +117,12 @@ void gotoIotInitMode()
 {
   // ToDo if websocket do not receive any connections within... 1-2 minutes, then go back tu
   // Wifi reconnection loop. Maybe in void loop() ?
-  Serial.print("Setting up soft-AP fo IoT initialization ... ");
-  boolean result = WiFi.softAP(WiFi.hostname().c_str(), STA_WIFI_KEY, 9, false, 1);
+  Serial.printf("\nSetting up soft-AP fo IoT initialization ... \n");
+  boolean result = WiFi.softAP(wifiHostname, STA_WIFI_KEY, 9, false, 1);
   if (result == true)
   {
-    Serial.print("Soft-AP IP address = ");
+    Serial.printf("SoftAP SSID: %s\n", wifiHostname);
+    Serial.print("Soft-AP IP address: ");
     Serial.println(WiFi.softAPIP());
     Serial.println("Ready");
     Serial.println("Setting up WebSocket server for IoT device initialization ... ");
@@ -163,11 +187,18 @@ void wsGetCurrentState(uint8_t num, string &subject)
   payload += "\n";
   payload += WiFi.SSID();
   payload += "\n";
+  payload += WiFi.psk();
+  payload += "\n";
   payload += iotDeviceId;
-  for (size_t i = 0; i < lenOutPins; i++)
+  payload += "\n";
+  payload += IOT_TYPE;
+  for (Output_t &item : outDevices)
   {
     payload += "\n";
-    payload += i;
+    payload += item.active;
+    Serial.print("** - item.active: ");
+    Serial.print(item.active);
+    Serial.println();
   }
   webSocket.sendTXT(num, payload);
 }
@@ -183,10 +214,14 @@ void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
   if (clientIdNeedsChange)
   {
     wsMqttClientIdChange(newIotClientId);
+    // ToDo  before, disconnect MQTT clients to notify device lost to API.
+    setTopicBase();
   }
+  wsActivateOutputs(payloadTokens);
   bool isConnected = wifiStationConnect(payloadTokens[1].c_str(),
                                         payloadTokens[2].c_str());
   wsRespondSetInitValuesState(num, payloadTokens[0], isConnected);
+  // ToDo output set changes?
   if (clientIdNeedsChange)
   {
     mqttInit();
@@ -200,11 +235,20 @@ void wsMqttClientIdChange(const char *clientId)
     mqttClient.disconnect();
   }
   memset(iotDeviceId, 0, sizeof(iotDeviceId));
-  strncat(iotDeviceId, clientId, sizeof(iotDeviceId));
-  EEPROM.put(iotDeviceIdAddr, iotDeviceId);
+  strncpy(iotDeviceId, clientId, sizeof(iotDeviceId));
+  EEPROM.put(iotDeviceIdAddres, iotDeviceId);
   EEPROM.commit();
-  // ToDo  before, disconnect MQTT clients to notify device lost to API.
-  setTopicBase();
+}
+
+void wsActivateOutputs(vector<string> payloadTokens)
+{
+  size_t i = 4;
+  for (Output_t &item : outDevices)
+  {
+    item.active = atoi(payloadTokens[i++].c_str()) ? true : false;
+    EEPROM.put(item.addressActive, item.active);
+  }
+  EEPROM.commit();
 }
 
 void wsRespondSetInitValuesState(uint8_t num, string &subject, bool isWifiConnected)
@@ -223,54 +267,91 @@ String wsResponseBase(string &subject)
   return payload;
 }
 
+void setWifiHostname()
+{
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  strcpy(wifiHostname, "ESP_");
+  for (size_t i = 3; i < 6; i++)
+  {
+    char b[3];
+    sprintf(b, "%02X", mac[i]);
+    strcat(wifiHostname, b);
+  }
+  WiFi.hostname(String(wifiHostname));
+}
+
 void setupHardware()
 {
-  for (size_t i = 0; i < lenOutPins; i++)
+  for (Output_t &item : outDevices)
   {
-    pinMode(outputPins[i], OUTPUT);
-    analogWrite(outputPins[i], round(outputStates[i] * 1024));
+    if (!item.active)
+    {
+      continue;
+    }
+    pinMode(item.pin, OUTPUT);
+    analogWrite(item.pin, round(item.state * 1024));
   }
 }
 
-void initStatesFromEEPROM()
+void eepromInitialize()
 {
-  size_t eepromSize = calcEEPROMAddresses();
+  size_t eepromSize = eepromCalcAddresses();
   EEPROM.begin(eepromSize);
-  /* Init Actuator states from EEPROM to variable (array) */
-  for (size_t i = 0; i < lenOutPins; i++)
+  eepromInitstateInfo();
+  eepromInitIotDeviceId();
+  /* In case .put() was called */
+  EEPROM.commit();
+}
+
+size_t eepromCalcAddresses()
+{
+  iotDeviceIdAddres = 0;
+  size_t size = sizeof(iotDeviceId);
+  size_t outStateValueSize = sizeof(Output_t::state);
+  size_t outActiveValueSize = sizeof(Output_t::active);
+  for (Output_t &item : outDevices)
   {
-    EEPROM.get(outputStateAddrs[i], outputStates[i]);
-    if (isnan(outputStates[i]))
+    item.addressState = size;
+    size += outStateValueSize;
+    item.addressActive = size;
+    size += outActiveValueSize;
+  }
+  return size;
+}
+
+void eepromInitstateInfo()
+{
+  /* Init Output states from EEPROM to variable (array) */
+  for (Output_t &item : outDevices)
+  {
+    EEPROM.get(item.addressState, item.state);
+    if (isnan(item.state))
     { /* init to get rid of 0xFF */
-      outputStates[i] = 0.0f;
-      EEPROM.put(outputStateAddrs[i], outputStates[i]);
+      item.state = 0.0f;
+      EEPROM.put(item.addressState, item.state);
+    }
+    EEPROM.get(item.addressActive, item.active);
+    if (((byte)item.active) == 255)
+    { /* init to get rid of 0xFF */
+      item.active = false;
+      EEPROM.put(item.addressActive, item.active);
     }
   }
-  EEPROM.get(iotDeviceIdAddr, iotDeviceId);
+}
+
+void eepromInitIotDeviceId()
+{
+  EEPROM.get(iotDeviceIdAddres, iotDeviceId);
   for (byte b : iotDeviceId)
   {
     if (b == 255)
     { /* init to get rid of any 0xFF */
       memset(iotDeviceId, 0, sizeof(iotDeviceId));
-      EEPROM.put(iotDeviceIdAddr, iotDeviceId);
+      EEPROM.put(iotDeviceIdAddres, iotDeviceId);
       break;
     }
   }
-  /* In case .put() was called */
-  EEPROM.commit();
-}
-
-size_t calcEEPROMAddresses()
-{
-  iotDeviceIdAddr = 0;
-  size_t size = sizeof(iotDeviceId);
-  size_t outStateValueSize = sizeof(decay<decltype(outputStates)>::type);
-  for (size_t i = 0; i < lenOutPins; i++)
-  {
-    outputStateAddrs[i] = size;
-    size += outStateValueSize;
-  }
-  return size;
 }
 
 bool setTopicBase()
@@ -367,7 +448,7 @@ void mqttPublishPresent()
   strcat(topicPresent, present);
   /* 15 is legth of JSON stucture as of current implementation.
      16 is max byte length of pin object. */
-  char payload[15 + (16 * lenOutPins)];
+  char payload[15 + (16 * lenOutputs)];
   mqttGeneratePresentPayload(payload);
   mqttClient.publish(topicPresent, payload);
   Serial.printf("- - topicPresent is : \"%s\"\n", topicPresent);
@@ -377,14 +458,18 @@ void mqttPublishPresent()
 void mqttGeneratePresentPayload(char *payload)
 {
   strcpy(payload, R"({"outputs":[)");
-  for (size_t i = 0; i < lenOutPins; i++)
+  for (size_t i = 0, ii = 0; i < lenOutputs; i++)
   {
-    if (i > 0)
+    if (!outDevices[i].active)
+    {
+      continue;
+    }
+    if (ii++ > 0)
     {
       strcat(payload, ",");
     }
     char dev[16];
-    sprintf(dev, R"({"%d":%.3f})", i, outputStates[i]);
+    sprintf(dev, R"({"%d":%.3f})", i, outDevices[i].state);
     strcat(payload, dev);
   }
   strcat(payload, "]}");
@@ -392,9 +477,18 @@ void mqttGeneratePresentPayload(char *payload)
 
 void mqttSubscriber()
 {
-  Serial.printf(" subscribing to following topics: \n");
-  for (size_t i = 0; i < lenOutPins; i++)
+  if (!getActiveOutputCount())
   {
+    Serial.println("- - Cannot subscribe at MQTT broker, there are no activated outputs!");
+    return;
+  }
+  Serial.printf(" subscribing to following topics: \n");
+  for (size_t i = 0; i < lenOutputs; i++)
+  {
+    if (!outDevices[i].active)
+    {
+      continue;
+    }
     mqttSubscribeOutputToCommand(i, cmndState);
     mqttSubscribeOutputToCommand(i, cmndSetState);
   }
@@ -433,7 +527,7 @@ void logMessage(char *topic, byte *payload, size_t length)
 {
   Serial.println(">>>>> Message:");
   Serial.printf(" topic: \"%s\"\n", topic);
-  Serial.printf(" length, payload: \"%d\"\n", length);
+  Serial.printf(" length, payload: %d\n", length);
   printBuffer(" payload bytes: ", payload, length);
   Serial.println("<<<<<");
 }
@@ -486,7 +580,7 @@ void cmndSetStateHandler(const vector<string> topicTokens, byte *buffer, size_t 
   float state = bufferToFloat(buffer, length);
   if (idIdx == -1)
   {
-    for (size_t i = 0; i < lenOutPins; i++)
+    for (size_t i = 0; i < lenOutputs; i++)
     {
       setStateAndSave(i, state);
     }
@@ -502,7 +596,7 @@ int8_t findOutputIndex(const vector<string> topicTokens)
 {
   string x = topicTokens[4];
   if (x.length() == 0)
-  { /* all devices/indexes */
+  { /* all devices/indices */
     return -1;
   }
   if (x == "0")
@@ -510,7 +604,7 @@ int8_t findOutputIndex(const vector<string> topicTokens)
     return 0;
   }
   unsigned int idx = atoi(x.c_str());
-  if (idx < 0 || idx > lenOutPins - 1)
+  if (idx < 0 || idx > lenOutputs - 1)
   {
     return -2;
   }
@@ -519,19 +613,21 @@ int8_t findOutputIndex(const vector<string> topicTokens)
 
 void setStateAndSave(int8_t outputIdx, float state)
 {
-  outputStates[outputIdx] = state;
-  analogWrite(outputPins[outputIdx], round(outputStates[outputIdx] * 1024));
-  EEPROM.put(outputStateAddrs[outputIdx], outputStates[outputIdx]);
+  Output_t device = outDevices[outputIdx];
+  device.state = state;
+  analogWrite(device.pin, round(device.state * 1024));
+  EEPROM.put(device.addressState, device.state);
   EEPROM.commit();
-  Serial.printf("- - set GPIO PIN value: \"%d\"=\"%f\"\n", outputPins[outputIdx], outputStates[outputIdx]);
+  Serial.printf("- - set GPIO PIN value: \"%d\"=\"%f\"\n", device.pin, device.state);
 }
 
 void publishResponseDeviceState(int8_t outputIdx, const vector<string> topicTokens)
 {
+  Output_t device = outDevices[outputIdx];
   // ToDo handle JSON responses as well
   char *responseTopic = createResponseTopic(topicTokens);
-  byte payload[sizeof(outputStates[outputIdx])];
-  *(float *)(payload) = outputStates[outputIdx]; // convert float to bytes
+  byte payload[sizeof(device.state)];
+  *(float *)(payload) = device.state; // convert float to bytes
   Serial.printf("- - responseTopic: \"%s\".\n", responseTopic);
   printBuffer("- - responsePayload bytes: ", payload, sizeof(payload));
   mqttClient.publish(responseTopic, payload, sizeof(payload));
