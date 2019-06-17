@@ -384,6 +384,12 @@ bool wifiStationConnect(const char *ssid, const char *psk)
 
 bool wifiStationConnect()
 {
+  if (strlen(WiFi.SSID().c_str()) == 0 || strlen(WiFi.psk().c_str()) == 0)
+  {
+    Serial.printf("\nNo WiFi SSID or PSK stored, end connecting.\n");
+    return false;
+  }
+  WiFi.mode(WIFI_STA);
   WiFi.begin();
   return wifiStationConnectVerifier();
 }
