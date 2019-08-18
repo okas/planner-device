@@ -9,6 +9,7 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <WebSocketsServer.h>
+#include <Ticker.h>
 
 using namespace std;
 
@@ -282,6 +283,12 @@ void setWifiHostname()
 }
 
 void setupHardware()
+{
+  setupInitButton();
+  setupOutputDevices();
+}
+
+void setupOutputDevices()
 {
   for (Output_t &item : outDevices)
   {
@@ -655,6 +662,7 @@ char *createResponseTopic(const vector<string> topicTokens)
 
 void loop()
 {
+  iot_start_init_loop();
   int mqttState = mqttClient.state();
   switch (mqttState)
   {
