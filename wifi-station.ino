@@ -6,6 +6,7 @@ bool wifiStationConnect(const char *ssid, const char *psk)
 
 bool wifiStationConnect()
 {
+  WiFi.mode(WIFI_STA);
   WiFi.begin();
   return wifiStationConnectVerifier();
 }
