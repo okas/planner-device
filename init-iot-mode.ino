@@ -59,8 +59,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
     /* ToDo Disconnect softAP if Station is connect sucessfully.
      * On same conditions teardown websocket too.
      */
-
-    // Serial.printf("[%u] Disconnected!\n", num);
     // Serial.println("- - now closing soft AP..");
     // WiFi.softAPdisconnect();
     break;
@@ -73,7 +71,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
   }
   case WStype_TEXT: // if new text data is received
   {
-    Serial.printf("[%u] got Text: %s\n", num, payload);
     vector<string> payloadTokens = strsplit((char *)payload, "\n");
     wsTXTMessageHandler(num, payloadTokens);
     break;
