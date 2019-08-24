@@ -1,4 +1,4 @@
-bool wifiStationConnect(const char *ssid, const char *psk)
+bool wifiStationInit(const char *ssid, const char *psk)
 {
   WiFi.begin(ssid, psk);
   return wifiStationConnectVerifier();

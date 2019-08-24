@@ -2,10 +2,21 @@
 
 const char *STA_WIFI_KEY = "hellohello";
 
+enum initState : byte
+{
+  idle = 1,
+  succeed = 2,
+  failed = 3,
+  working = 4
+};
+
+initState _currentState;
+
 /* --- Init Mode */
 
 bool startInitMode()
 {
+  _currentState = idle;
   boolean result = softAPInit();
   if (result)
   {
@@ -72,43 +83,35 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
 
 void wsTXTMessageHandler(uint8_t num, vector<string> payloadTokens)
 {
-  const char *sbjGetHostname = "get-currentState";
-  const char *sbjSetInitValues = "set-initValues";
-  if (payloadTokens[0] == sbjGetHostname)
+  if (payloadTokens[0] == "get-initState")
   {
-    wsGetCurrentState(num, payloadTokens[0]);
+    wsGetInitState(num, payloadTokens, _currentState == idle);
   }
-  else if (payloadTokens[0] == sbjSetInitValues)
+  else if (payloadTokens[0] == "set-initValues")
   {
     wsSetInitValues(num, payloadTokens);
   }
+  else if (payloadTokens[0] == "get-currentConfig")
+  {
+    wsGetInitState(num, payloadTokens, true);
+  }
 }
 
-void wsGetCurrentState(uint8_t num, string &subject)
+void wsGetInitState(uint8_t num, vector<string> payloadTokens, bool includeCurrentConfig)
 {
-  String payload = wsResponseBase(subject);
-  payload += WiFi.hostname();
+  String payload = wsResponseBase(payloadTokens[0]);
+  payload += _currentState;
   payload += "\n";
-  payload += WiFi.SSID();
-  payload += "\n";
-  payload += WiFi.psk();
-  payload += "\n";
-  payload += iotDeviceId;
-  payload += "\n";
-  payload += IOT_TYPE;
-  for (Output_t &item : outDevices)
+  if (includeCurrentConfig)
   {
-    payload += "\n";
-    payload += item.active;
-    Serial.print("** - item.active: ");
-    Serial.print(item.active);
-    Serial.println();
+    wsAddConfigParams(payload);
   }
   webSocket.sendTXT(num, payload);
 }
 
 void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
 {
+  _currentState = working;
   const char *newIotClientId = payloadTokens[3].c_str();
   bool clientIdNeedsChange = strlen(newIotClientId) < 1 || strcmp(newIotClientId, iotDeviceId) != 0;
   Serial.printf("* - newIotClientId: \"%s\"\n", newIotClientId);
@@ -121,11 +124,15 @@ void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
     setTopicBase();
   }
   wsActivateOutputs(payloadTokens);
-  bool isConnected = wifiStationConnect(payloadTokens[1].c_str(),
+  bool isWiFiStaConnected = wifiStationInit(payloadTokens[1].c_str(),
                                         payloadTokens[2].c_str());
-  wsRespondSetInitValuesState(num, payloadTokens[0], isConnected);
-  // ToDo output set changes?
-  if (clientIdNeedsChange)
+  _currentState = isWiFiStaConnected ? succeed : failed;
+
+  if (webSocket.connectedClients(true))
+  {
+    wsSetValuesSucceed(num, payloadTokens[0]);
+  }
+  if (_currentState == succeed)
   {
     mqttInit();
   }
@@ -150,18 +157,37 @@ void wsActivateOutputs(vector<string> payloadTokens)
   EEPROM.commit();
 }
 
-void wsRespondSetInitValuesState(uint8_t num, string &subject, bool isWifiConnected)
+bool wsSetValuesSucceed(uint8_t num, string &subject)
 {
   String payload = wsResponseBase(subject);
-  payload += (uint)isWifiConnected;
-  webSocket.sendTXT(num, payload);
+  payload += _currentState;
+  bool ret = webSocket.sendTXT(num, payload);
+  return ret;
 }
 
 String wsResponseBase(string &subject)
 {
   String payload;
-  payload.reserve(subject.size() + 40);
+  payload.reserve(subject.size() + 100);
   payload += subject.c_str();
   payload += "-R\n";
   return payload;
+}
+
+void wsAddConfigParams(String &payload)
+{
+  payload += WiFi.hostname();
+  payload += "\n";
+  payload += WiFi.SSID();
+  payload += "\n";
+  payload += WiFi.psk();
+  payload += "\n";
+  payload += iotDeviceId;
+  payload += "\n";
+  payload += IOT_TYPE;
+  for (Output_t &item : outDevices)
+  {
+    payload += "\n";
+    payload += item.active;
+  }
 }
