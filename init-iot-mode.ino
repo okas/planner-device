@@ -1,6 +1,7 @@
 /* Init Mode --- */
 
 const char *STA_WIFI_KEY = "hellohello";
+const float leaveInitTimeout = 30;
 
 /* --- Init Mode */
 
@@ -28,7 +29,7 @@ bool softAPInit()
   }
   else
   {
-    Serial.println("SoftAP startup failed! Hopefully restart helps...");
+    Serial.printf("SoftAP startup failed! Status code: %d.\n", WiFi.status());
   }
   return result;
 }
@@ -40,21 +41,29 @@ void wsInit()
   webSocket.begin();
 }
 
+bool endInitMode()
+{
+  webSocket.close();
+  WiFi.softAPdisconnect();
+}
+
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
-{ // When a WebSocket message is received
+{
   switch (type)
   {
   case WStype_DISCONNECTED: // if the websocket is disconnected
   {
-    /* ToDo Disconnect softAP if Station is connect sucessfully.
-     * On same conditions teardown websocket too.
-     */
-    // Serial.println("- - now closing soft AP..");
-    // WiFi.softAPdisconnect();
+    Serial.printf(" - - In %fs leaving Initialization Mode.\n", leaveInitTimeout);
+    initMode_ticker.once(leaveInitTimeout, leaveIotInitMode);
     break;
   }
   case WStype_CONNECTED: // if a new websocket connection is established
   {
+    if (initMode_ticker.active())
+    {
+      Serial.println(" - - Cancel timer of \"Leaving Initialization Mode\".");
+      initMode_ticker.detach();
+    }
     IPAddress ip = webSocket.remoteIP(num);
     Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
     break;
@@ -113,7 +122,6 @@ void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
   wsActivateOutputs(payloadTokens);
   bool isWiFiStaConnected = wifiStationInit(payloadTokens[1].c_str(),
                                             payloadTokens[2].c_str());
-  _currentState = isWiFiStaConnected ? succeed : failed;
   _initState = isWiFiStaConnected ? InitState_t::succeed : InitState_t::failed;
 
   if (webSocket.connectedClients(true))

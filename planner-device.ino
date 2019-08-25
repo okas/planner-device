@@ -24,6 +24,13 @@ struct Output_t
   unsigned int addressActive;
 };
 
+enum IOTState_T : byte
+{
+  started,
+  operating,
+  initMode
+};
+
 enum InitState_t : byte
 {
   stopped = 0,
@@ -33,7 +40,9 @@ enum InitState_t : byte
   working = 4
 };
 
+IOTState_T _iotState;
 InitState_t _initState;
+Ticker initMode_ticker;
 
 char iotDeviceId[31];
 unsigned int iotDeviceIdAddres;
@@ -56,25 +65,55 @@ void setup()
   if (getActiveOutputCount() && wifiStationConnect() && setTopicBase())
   {
     mqttInit();
+    _iotState = IOTState_T::operating;
   }
   else
   {
-    WiFi.disconnect();
-    gotoIotInitMode();
+    // TODO, indicate problem and its kind (WiFi o misconfig), but do not start InitMode on every ocasion!
+    // WiFi.disconnect();
+    // startLEDBlinker();
+    // gotoIotInitMode();
   }
 }
 
-void gotoIotInitMode(bool blinkerOn = true)
+bool gotoIotInitMode()
 {
+  Serial.println(" - - Going to Initialization Mode.");
+  startLEDBlinker();
   if (mqttClient.connected())
   {
     mqttClient.disconnect();
   }
-  if (blinkerOn)
+  initMode_ticker.once(60, leaveIotInitMode);
+  bool ret = startInitMode();
+  if (ret)
   {
-    startLEDBlinker();
+    _iotState = IOTState_T::initMode;
   }
-  startInitMode();
+  else
+  {
+    Serial.println(" - - Failed to start Initialization Mode.");
+    stopLEDBlinker(true);
+  }
+  return ret;
+}
+
+void leaveIotInitMode()
+{
+  Serial.println(" - - Leaving the Initialization Mode.");
+  initMode_ticker.detach();
+  if (_initState == InitState_t::succeed || _initState == InitState_t::idle && mqttClient.connected())
+  {
+    _iotState = IOTState_T::operating;
+  }
+  else
+  {
+    _iotState = IOTState_T::started;
+  }
+  _initState = InitState_t::stopped;
+  endInitMode();
+  stopLEDBlinker(true);
+  // TODO restart ESP here in case of _iotState == IOTState_T::started?
 }
 
 void setupOutputDevices()

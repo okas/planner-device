@@ -68,8 +68,7 @@ void iot_start_init_loop()
   if (init_btn_timer_reached)
   {
     init_btn_timer_reached = false;
-    startLEDBlinker();
-    gotoIotInitMode(false);
+    gotoIotInitMode();
   }
 }
 
@@ -78,4 +77,10 @@ void startLEDBlinker()
   led_blinker_ticker.attach(0.5, []() {
     digitalWrite(LED_PIN, !digitalRead(LED_PIN));
   });
+}
+
+void stopLEDBlinker(bool off)
+{
+  led_blinker_ticker.detach();
+  digitalWrite(LED_PIN, off ? HIGH : LOW);
 }
