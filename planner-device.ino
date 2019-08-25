@@ -64,11 +64,15 @@ void setup()
   }
 }
 
-bool gotoIotInitMode()
+void gotoIotInitMode(bool blinkerOn = true)
 {
   if (mqttClient.connected())
   {
     mqttClient.disconnect();
+  }
+  if (blinkerOn)
+  {
+    startLEDBlinker();
   }
   startInitMode();
 }
