@@ -24,6 +24,17 @@ struct Output_t
   unsigned int addressActive;
 };
 
+enum InitState_t : byte
+{
+  stopped = 0,
+  idle = 1,
+  succeed = 2,
+  failed = 3,
+  working = 4
+};
+
+InitState_t _initState;
+
 char iotDeviceId[31];
 unsigned int iotDeviceIdAddres;
 Output_t outDevices[] = {{.pin = 5}, {.pin = 4}};

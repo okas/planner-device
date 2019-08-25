@@ -2,21 +2,11 @@
 
 const char *STA_WIFI_KEY = "hellohello";
 
-enum initState : byte
-{
-  idle = 1,
-  succeed = 2,
-  failed = 3,
-  working = 4
-};
-
-initState _currentState;
-
 /* --- Init Mode */
 
 bool startInitMode()
 {
-  _currentState = idle;
+  _initState = InitState_t::idle;
   boolean result = softAPInit();
   if (result)
   {
@@ -82,7 +72,7 @@ void wsTXTMessageHandler(uint8_t num, vector<string> payloadTokens)
 {
   if (payloadTokens[0] == "get-initState")
   {
-    wsGetInitState(num, payloadTokens, _currentState == idle);
+    wsGetInitState(num, payloadTokens, _initState == InitState_t::idle);
   }
   else if (payloadTokens[0] == "set-initValues")
   {
@@ -97,7 +87,7 @@ void wsTXTMessageHandler(uint8_t num, vector<string> payloadTokens)
 void wsGetInitState(uint8_t num, vector<string> payloadTokens, bool includeCurrentConfig)
 {
   String payload = wsResponseBase(payloadTokens[0]);
-  payload += _currentState;
+  payload += _initState;
   payload += "\n";
   if (includeCurrentConfig)
   {
@@ -108,7 +98,7 @@ void wsGetInitState(uint8_t num, vector<string> payloadTokens, bool includeCurre
 
 void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
 {
-  _currentState = working;
+  _initState = InitState_t::working;
   const char *newIotClientId = payloadTokens[3].c_str();
   bool clientIdNeedsChange = strlen(newIotClientId) < 1 || strcmp(newIotClientId, iotDeviceId) != 0;
   Serial.printf("* - newIotClientId: \"%s\"\n", newIotClientId);
@@ -122,14 +112,15 @@ void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
   }
   wsActivateOutputs(payloadTokens);
   bool isWiFiStaConnected = wifiStationInit(payloadTokens[1].c_str(),
-                                        payloadTokens[2].c_str());
+                                            payloadTokens[2].c_str());
   _currentState = isWiFiStaConnected ? succeed : failed;
+  _initState = isWiFiStaConnected ? InitState_t::succeed : InitState_t::failed;
 
   if (webSocket.connectedClients(true))
   {
     wsSetValuesSucceed(num, payloadTokens[0]);
   }
-  if (_currentState == succeed)
+  if (_initState == InitState_t::succeed)
   {
     mqttInit();
   }
@@ -157,7 +148,7 @@ void wsActivateOutputs(vector<string> payloadTokens)
 bool wsSetValuesSucceed(uint8_t num, string &subject)
 {
   String payload = wsResponseBase(subject);
-  payload += _currentState;
+  payload += _initState;
   bool ret = webSocket.sendTXT(num, payload);
   return ret;
 }
