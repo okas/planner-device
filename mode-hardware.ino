@@ -7,7 +7,7 @@ const uint button_debounce_delay = 200; // Milliseconds
 volatile bool init_btn_timer_reached;
 volatile unsigned long button_last_micros;
 volatile int init_btn_last_state;
-Ticker init_initiated_ticker;
+Ticker led_blinker_ticker;
 Ticker init_btn_ticker;
 void ICACHE_RAM_ATTR init_button_change();
 
@@ -56,7 +56,7 @@ void init_button_down()
 void init_button_up()
 {
   init_btn_ticker.detach();
-  if (!init_initiated_ticker.active())
+  if (!led_blinker_ticker.active())
   {
     digitalWrite(LED_PIN, HIGH);
     Serial.println("LED_BUILTIN OFF");
@@ -75,7 +75,7 @@ void iot_start_init_loop()
 
 void startLEDBlinker()
 {
-  init_initiated_ticker.attach(0.5, []() {
+  led_blinker_ticker.attach(0.5, []() {
     digitalWrite(LED_PIN, !digitalRead(LED_PIN));
   });
 }
