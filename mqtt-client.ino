@@ -218,7 +218,7 @@ int8_t findOutputIndex(const vector<string> topicTokens)
 
 void setStateAndSave(int8_t outputIdx, float state)
 {
-  Output_t device = outDevices[outputIdx];
+  OutputDevice_t device = outDevices[outputIdx];
   device.state = state;
   analogWrite(device.pin, round(device.state * 1024));
   EEPROM.put(device.addressState, device.state);
@@ -228,7 +228,7 @@ void setStateAndSave(int8_t outputIdx, float state)
 
 void publishResponseDeviceState(int8_t outputIdx, const vector<string> topicTokens)
 {
-  Output_t device = outDevices[outputIdx];
+  OutputDevice_t device = outDevices[outputIdx];
   // ToDo handle JSON responses as well
   char *responseTopic = createResponseTopic(topicTokens);
   byte payload[sizeof(device.state)];

@@ -15,7 +15,7 @@ using namespace std;
 
 const char *IOT_TYPE = "generic-2out";
 
-struct Output_t
+struct OutputDevice_t
 {
   const uint8_t pin;
   float state;
@@ -24,7 +24,7 @@ struct Output_t
   unsigned int addressActive;
 };
 
-enum IOTState_T : byte
+enum IOTState_t : byte
 {
   started,
   operating,
@@ -40,14 +40,14 @@ enum InitState_t : byte
   working = 4
 };
 
-IOTState_T _iotState;
+IOTState_t _iotState;
 InitState_t _initState;
 Ticker initMode_ticker;
 
 char iotDeviceId[31];
 unsigned int iotDeviceIdAddres;
-Output_t outDevices[] = {{.pin = 5}, {.pin = 4}};
-const size_t lenOutputs = sizeof(outDevices) / sizeof(Output_t);
+OutputDevice_t outDevices[] = {{.pin = 5}, {.pin = 4}};
+const size_t lenOutputs = sizeof(outDevices) / sizeof(OutputDevice_t);
 
 char wifiHostname[11];
 
@@ -65,7 +65,7 @@ void setup()
   if (getActiveOutputCount() && wifiStationConnect() && setTopicBase())
   {
     mqttInit();
-    _iotState = IOTState_T::operating;
+    _iotState = IOTState_t::operating;
   }
   else
   {
@@ -88,7 +88,7 @@ bool gotoIotInitMode()
   bool ret = startInitMode();
   if (ret)
   {
-    _iotState = IOTState_T::initMode;
+    _iotState = IOTState_t::initMode;
   }
   else
   {
@@ -104,21 +104,21 @@ void leaveIotInitMode()
   initMode_ticker.detach();
   if (_initState == InitState_t::succeed || _initState == InitState_t::idle && mqttClient.connected())
   {
-    _iotState = IOTState_T::operating;
+    _iotState = IOTState_t::operating;
   }
   else
   {
-    _iotState = IOTState_T::started;
+    _iotState = IOTState_t::started;
   }
   _initState = InitState_t::stopped;
   endInitMode();
   stopLEDBlinker(true);
-  // TODO restart ESP here in case of _iotState == IOTState_T::started?
+  // TODO restart ESP here in case of _iotState == IOTState_t::started?
 }
 
 void setupOutputDevices()
 {
-  for (Output_t &item : outDevices)
+  for (OutputDevice_t &item : outDevices)
   {
     if (!item.active)
     {

@@ -35,7 +35,7 @@ vector<string> strsplit(char *phrase, char *delimiter)
 size_t getActiveOutputCount()
 {
   size_t result = 0;
-  for (Output_t device : outDevices)
+  for (OutputDevice_t device : outDevices)
   {
     if (device.active)
     {

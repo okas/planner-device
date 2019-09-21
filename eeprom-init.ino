@@ -12,9 +12,9 @@ size_t eepromCalcAddresses()
 {
   iotDeviceIdAddres = 0;
   size_t size = sizeof(iotDeviceId);
-  size_t outStateValueSize = sizeof(Output_t::state);
-  size_t outActiveValueSize = sizeof(Output_t::active);
-  for (Output_t &item : outDevices)
+  size_t outStateValueSize = sizeof(OutputDevice_t::state);
+  size_t outActiveValueSize = sizeof(OutputDevice_t::active);
+  for (OutputDevice_t &item : outDevices)
   {
     item.addressState = size;
     size += outStateValueSize;
@@ -27,7 +27,7 @@ size_t eepromCalcAddresses()
 void eepromInitstateInfo()
 {
   /* Init Output states from EEPROM to variable (array) */
-  for (Output_t &item : outDevices)
+  for (OutputDevice_t &item : outDevices)
   {
     EEPROM.get(item.addressState, item.state);
     if (isnan(item.state))

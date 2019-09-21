@@ -145,7 +145,7 @@ void wsMqttClientIdChange(const char *clientId)
 void wsActivateOutputs(vector<string> payloadTokens)
 {
   size_t i = 4;
-  for (Output_t &item : outDevices)
+  for (OutputDevice_t &item : outDevices)
   {
     item.active = atoi(payloadTokens[i++].c_str()) ? true : false;
     EEPROM.put(item.addressActive, item.active);
@@ -181,7 +181,7 @@ void wsAddConfigParams(String &payload)
   payload += iotDeviceId;
   payload += "\n";
   payload += IOT_TYPE;
-  for (Output_t &item : outDevices)
+  for (OutputDevice_t &item : outDevices)
   {
     payload += "\n";
     payload += item.active;
