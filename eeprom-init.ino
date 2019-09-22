@@ -35,11 +35,16 @@ void eepromInitstateInfo()
       item.state = 0.0f;
       EEPROM.put(item.addressState, item.state);
     }
-    EEPROM.get(item.addressActive, item.active);
-    if (((byte)item.active) == 255)
+    byte temp;
+    EEPROM.get(item.addressActive, temp);
+    if (temp != 0xFF)
     { /* init to get rid of 0xFF */
       item.active = false;
-      EEPROM.put(item.addressActive, item.active);
+      EEPROM.put(item.addressActive, false);
+    }
+    else
+    {
+      item.active = (bool)temp;
     }
   }
 }
