@@ -44,8 +44,6 @@ IOTState_t _iotState;
 InitState_t _initState;
 Ticker initMode_ticker;
 
-char iotDeviceId[31];
-unsigned int iotDeviceIdAddres;
 OutputDevice_t outDevices[] = {{.pin = 5}, {.pin = 4}};
 const size_t lenOutputs = sizeof(outDevices) / sizeof(OutputDevice_t);
 

@@ -3,15 +3,13 @@ void eepromInitialize()
   size_t eepromSize = eepromCalcAddresses();
   EEPROM.begin(eepromSize);
   eepromInitstateInfo();
-  eepromInitIotDeviceId();
   /* In case .put() was called */
   EEPROM.commit();
 }
 
 size_t eepromCalcAddresses()
 {
-  iotDeviceIdAddres = 0;
-  size_t size = sizeof(iotDeviceId);
+  size_t size = 0;
   size_t outStateValueSize = sizeof(OutputDevice_t::state);
   size_t outActiveValueSize = sizeof(OutputDevice_t::active);
   for (OutputDevice_t &item : outDevices)
@@ -45,20 +43,6 @@ void eepromInitstateInfo()
     else
     {
       item.active = (bool)temp;
-    }
-  }
-}
-
-void eepromInitIotDeviceId()
-{
-  EEPROM.get(iotDeviceIdAddres, iotDeviceId);
-  for (byte b : iotDeviceId)
-  {
-    if (b == 255)
-    { /* init to get rid of any 0xFF */
-      memset(iotDeviceId, 0, sizeof(iotDeviceId));
-      EEPROM.put(iotDeviceIdAddres, iotDeviceId);
-      break;
     }
   }
 }

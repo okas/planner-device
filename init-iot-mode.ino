@@ -108,17 +108,9 @@ void wsGetInitState(uint8_t num, vector<string> payloadTokens, bool includeCurre
 void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
 {
   _initState = InitState_t::working;
-  const char *newIotClientId = payloadTokens[3].c_str();
-  bool clientIdNeedsChange = strlen(newIotClientId) < 1 || strcmp(newIotClientId, iotDeviceId) != 0;
-  Serial.printf("* - newIotClientId: \"%s\"\n", newIotClientId);
-  Serial.print("* - clientIdNeedsChange: ");
-  Serial.print(clientIdNeedsChange);
-  Serial.println();
-  if (clientIdNeedsChange)
-  {
-    wsMqttClientIdChange(newIotClientId);
-    setTopicBase();
-  }
+  /* TODO: If I/O states change then probably new MQTT topic must be set up.
+  * Old implementation used specialised valu fir MQTT client id, that was part of subscribed topic as well.
+  */
   wsActivateOutputs(payloadTokens);
   bool isWiFiStaConnected = wifiStationInit(payloadTokens[1].c_str(),
                                             payloadTokens[2].c_str());
@@ -134,17 +126,9 @@ void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
   }
 }
 
-void wsMqttClientIdChange(const char *clientId)
-{
-  memset(iotDeviceId, 0, sizeof(iotDeviceId));
-  strncpy(iotDeviceId, clientId, sizeof(iotDeviceId));
-  EEPROM.put(iotDeviceIdAddres, iotDeviceId);
-  EEPROM.commit();
-}
-
 void wsActivateOutputs(vector<string> payloadTokens)
 {
-  size_t i = 4;
+  size_t i = 3;
   for (OutputDevice_t &item : outDevices)
   {
     item.active = atoi(payloadTokens[i++].c_str()) ? true : false;
@@ -172,13 +156,11 @@ String wsResponseBase(string &subject)
 
 void wsAddConfigParams(String &payload)
 {
-  payload += WiFi.hostname();
+  payload += WiFi.macAddress();
   payload += "\n";
   payload += WiFi.SSID();
   payload += "\n";
   payload += WiFi.psk();
-  payload += "\n";
-  payload += iotDeviceId;
   payload += "\n";
   payload += IOT_TYPE;
   for (OutputDevice_t &item : outDevices)

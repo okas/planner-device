@@ -32,7 +32,7 @@ void mqttConnect()
   while (!mqttClient.connected())
   {
     Serial.println(" Connecting to MQTT...");
-    if (mqttClient.connect(iotDeviceId, mqttUser, mqttPassword, lastWillTopic, 0, false, ""))
+    if (mqttClient.connect(WiFi.macAddress().c_str(), mqttUser, mqttPassword, lastWillTopic, 0, false, ""))
     {
       Serial.println(" MQTT connected!");
     }
@@ -254,14 +254,9 @@ char *createResponseTopic(const vector<string> topicTokens)
 
 bool setTopicBase()
 {
-  if (strlen(iotDeviceId) == 0)
-  {
-    Serial.println("- - provided MQTT ClientId is empty, cannot set topic base!");
-    return false;
-  }
   memset(topicBase, 0, sizeof(topicBase));
-  strcpy(topicBase, "saartk/device/lamp/");
-  strcat(topicBase, iotDeviceId);
+  strcpy(topicBase, "saartk/device/lamp/");     // ToDo here should be "type" that is gathered on I/O init mode. User activates I/O and provides type
+  strcat(topicBase, WiFi.macAddress().c_str()); // TODO: here should be I/O ID in future
   Serial.printf("- - topicBase [result] is : \"%s\"\n", topicBase);
   return true;
 }
