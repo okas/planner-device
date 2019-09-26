@@ -36,13 +36,13 @@ void eepromInitstateInfo()
     byte temp;
     EEPROM.get(item.addressActive, temp);
     if (temp != 0xFF)
-    { /* init to get rid of 0xFF */
-      item.active = false;
-      EEPROM.put(item.addressActive, false);
-    }
-    else
     {
       item.active = (bool)temp;
+    }
+    else
+    { /* init to get rid of 0xFF */
+      item.active = false;
+      EEPROM.put(item.addressActive, item.active);
     }
   }
 }
