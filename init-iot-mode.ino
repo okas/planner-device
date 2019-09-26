@@ -70,55 +70,70 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
   }
   case WStype_TEXT: // if new text data is received
   {
-    vector<string> payloadTokens = strsplit((char *)payload, "\n");
-    wsTXTMessageHandler(num, payloadTokens);
+    wsTXTMessageHandler(num, (char *)payload, lenght);
     break;
   }
   }
 }
 
-void wsTXTMessageHandler(uint8_t num, vector<string> payloadTokens)
+void wsTXTMessageHandler(uint8_t num, char *payload, size_t lenght)
 {
-  if (payloadTokens[0] == "get-initState")
+  const size_t capacity = 2 * JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(3) + 40;
+  StaticJsonDocument<capacity> payloadDoc;
+  deserializeJson(payloadDoc, payload, lenght);
+  const char *subject = payloadDoc[0];
+  if (strcmp(subject, "get-initState") == 0)
   {
-    wsGetInitState(num, payloadTokens, _initState == InitState_t::idle);
+    wsGetInitState(num, "get-initState-R", _initState == InitState_t::idle);
   }
-  else if (payloadTokens[0] == "set-initValues")
+  else if (strcmp(subject, "set-initValues") == 0)
   {
-    wsSetInitValues(num, payloadTokens);
+    wsSetInitValues(num, "set-initValues-R", payloadDoc[1]);
   }
-  else if (payloadTokens[0] == "get-currentConfig")
+  else if (strcmp(subject, "get-currentConfig") == 0)
   {
-    wsGetInitState(num, payloadTokens, true);
+    wsGetInitState(num, "get-currentConfig-R", true);
   }
 }
 
-void wsGetInitState(uint8_t num, vector<string> payloadTokens, bool includeCurrentConfig)
+void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurrentConfig)
 {
-  String payload = wsResponseBase(payloadTokens[0]);
-  payload += _initState;
-  payload += "\n";
+  const size_t capacity = 2 * JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(6) + includeCurrentConfig
+                              ? 300
+                              : 30;
+  JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
   if (includeCurrentConfig)
   {
-    wsAddConfigParams(payload);
+    wsAddConfigParams(responseDoc[1]);
   }
-  webSocket.sendTXT(num, payload);
+  wsResponseSendTXT(num, responseDoc);
 }
 
-void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
+void wsAddConfigParams(JsonObject obj)
+{
+  obj["iotDeviceId"] = WiFi.macAddress();
+  obj["ssid"] = WiFi.SSID();
+  obj["psk"] = WiFi.psk();
+  obj["iotType"] = IOT_TYPE;
+  JsonArray outputs = obj.createNestedArray("outputs");
+  for (OutputDevice_t &item : outDevices)
+  {
+    outputs.add(item.active);
+  }
+}
+
+void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloadObj)
 {
   _initState = InitState_t::working;
   /* TODO: If I/O states change then probably new MQTT topic must be set up.
   * Old implementation used specialised valu fir MQTT client id, that was part of subscribed topic as well.
   */
-  wsActivateOutputs(payloadTokens);
-  bool isWiFiStaConnected = wifiStationInit(payloadTokens[1].c_str(),
-                                            payloadTokens[2].c_str());
+  wsActivateOutputs(payloadObj["outputs"]);
+  bool isWiFiStaConnected = wifiStationInit(payloadObj["ssid"], payloadObj["psk"]);
   _initState = isWiFiStaConnected ? InitState_t::succeed : InitState_t::failed;
-
   if (webSocket.connectedClients(true))
   {
-    wsSetValuesSucceed(num, payloadTokens[0]);
+    wsSetValuesSucceed(num, responseSubject);
   }
   if (_initState == InitState_t::succeed)
   {
@@ -126,46 +141,36 @@ void wsSetInitValues(uint8_t num, vector<string> payloadTokens)
   }
 }
 
-void wsActivateOutputs(vector<string> payloadTokens)
+void wsActivateOutputs(JsonArray outputValues)
 {
-  size_t i = 3;
-  for (OutputDevice_t &item : outDevices)
+  for (size_t i = 0; i < lenOutputs; i++)
   {
-    item.active = atoi(payloadTokens[i++].c_str()) ? true : false;
-    EEPROM.put(item.addressActive, item.active);
+    outDevices[i].active = outputValues[i].as<bool>();
+    EEPROM.put(outDevices[i].addressActive, outDevices[i].active);
   }
   EEPROM.commit();
 }
 
-bool wsSetValuesSucceed(uint8_t num, string &subject)
+bool wsSetValuesSucceed(uint8_t num, const char *responseSubject)
 {
-  String payload = wsResponseBase(subject);
-  payload += _initState;
-  bool ret = webSocket.sendTXT(num, payload);
-  return ret;
+  const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + 30;
+  JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
+  return wsResponseSendTXT(num, responseDoc);
 }
 
-String wsResponseBase(string &subject)
+JsonDocument wsCreateResponse(const size_t docSize, const char *responseSubject)
 {
-  String payload;
-  payload.reserve(subject.size() + 100);
-  payload += subject.c_str();
-  payload += "-R\n";
-  return payload;
+  DynamicJsonDocument responseDoc(docSize);
+  responseDoc.add(responseSubject);
+  JsonObject data = responseDoc.createNestedObject();
+  data["state"] = (byte)_initState; // otherwise inferes wrong type (boolean)
+  return responseDoc;
 }
 
-void wsAddConfigParams(String &payload)
+bool wsResponseSendTXT(uint8_t num, JsonDocument responseDoc)
 {
-  payload += WiFi.macAddress();
-  payload += "\n";
-  payload += WiFi.SSID();
-  payload += "\n";
-  payload += WiFi.psk();
-  payload += "\n";
-  payload += IOT_TYPE;
-  for (OutputDevice_t &item : outDevices)
-  {
-    payload += "\n";
-    payload += item.active;
-  }
+  const size_t size = measureJson(responseDoc) + 1; // make room for \u0 as well.
+  char buffer[size];
+  serializeJson(responseDoc, buffer, size);
+  return webSocket.sendTXT(num, buffer, size - 1); // cut off \u0 from data to be sent.
 }

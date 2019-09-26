@@ -10,6 +10,7 @@
 #include <PubSubClient.h>
 #include <WebSocketsServer.h>
 #include <Ticker.h>
+#include <ArduinoJson.h>
 
 using namespace std;
 
