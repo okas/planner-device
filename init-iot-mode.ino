@@ -128,7 +128,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   /* TODO: If I/O states change then probably new MQTT topic must be set up.
   * Old implementation used specialised valu fir MQTT client id, that was part of subscribed topic as well.
   */
-  wsActivateOutputs(payloadObj["outputs"]);
+  wsStoreOutputsToEEPROM(payloadObj["outputs"]);
   bool isWiFiStaConnected = wifiStationInit(payloadObj["ssid"], payloadObj["psk"]);
   _initState = isWiFiStaConnected ? InitState_t::succeed : InitState_t::failed;
   if (webSocket.connectedClients(true))
@@ -141,7 +141,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   }
 }
 
-void wsActivateOutputs(JsonArray outputValues)
+void wsStoreOutputsToEEPROM(JsonArray outputValues)
 {
   size_t lenUsage = sizeof(OutputDevice_t::usage);
   for (size_t i = 0; i < lenOutputs; i++)
