@@ -21,8 +21,8 @@ struct OutputDevice_t
   const uint8_t pin;
   float state;
   unsigned int addressState;
-  bool active;
-  unsigned int addressActive;
+  char usage[20];
+  unsigned int addressUsage;
 };
 
 enum IOTState_t : byte
@@ -61,7 +61,7 @@ void setup()
   setupInitButton();
   setupOutputDevices();
   setWifiHostname();
-  if (getActiveOutputCount() && wifiStationConnect() && setTopicBase())
+  if (/* getActiveOutputCount() && */ wifiStationConnect() && setTopicBase())
   {
     mqttInit();
     _iotState = IOTState_t::operating;
@@ -119,7 +119,7 @@ void setupOutputDevices()
 {
   for (OutputDevice_t &item : outDevices)
   {
-    if (!item.active)
+    if (strlen(item.usage) == 0)
     {
       continue;
     }

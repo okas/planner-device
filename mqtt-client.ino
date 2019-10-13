@@ -65,7 +65,7 @@ void mqttGeneratePresentPayload(char *payload)
   strcpy(payload, R"({"outputs":[)");
   for (size_t i = 0, ii = 0; i < lenOutputs; i++)
   {
-    if (!outDevices[i].active)
+    if (strlen(outDevices[i].usage) == 0)
     {
       continue;
     }
@@ -82,7 +82,7 @@ void mqttGeneratePresentPayload(char *payload)
 
 void mqttSubscriber()
 {
-  if (!getActiveOutputCount())
+  if (!getInUseOutputCount())
   {
     Serial.println("- - Cannot subscribe at MQTT broker, there are no activated outputs!");
     return;
@@ -90,7 +90,7 @@ void mqttSubscriber()
   Serial.printf(" subscribing to following topics: \n");
   for (size_t i = 0; i < lenOutputs; i++)
   {
-    if (!outDevices[i].active)
+    if (strlen(outDevices[i].usage) == 0)
     {
       continue;
     }
@@ -218,7 +218,7 @@ int8_t findOutputIndex(const vector<string> topicTokens)
 
 void setStateAndSave(int8_t outputIdx, float state)
 {
-  OutputDevice_t device = outDevices[outputIdx];
+  OutputDevice_t &device = outDevices[outputIdx];
   device.state = state;
   analogWrite(device.pin, round(device.state * 1024));
   EEPROM.put(device.addressState, device.state);
@@ -228,7 +228,7 @@ void setStateAndSave(int8_t outputIdx, float state)
 
 void publishResponseDeviceState(int8_t outputIdx, const vector<string> topicTokens)
 {
-  OutputDevice_t device = outDevices[outputIdx];
+  OutputDevice_t &device = outDevices[outputIdx];
   // ToDo handle JSON responses as well
   char *responseTopic = createResponseTopic(topicTokens);
   byte payload[sizeof(device.state)];

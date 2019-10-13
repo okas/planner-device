@@ -9,15 +9,15 @@ void eepromInitialize()
 
 size_t eepromCalcAddresses()
 {
-  size_t size = 0;
+  size_t size = 0; // This statement's value is the very start address of the EEPROM allocation.
   size_t outStateValueSize = sizeof(OutputDevice_t::state);
-  size_t outActiveValueSize = sizeof(OutputDevice_t::active);
+  size_t outUsageValueSize = sizeof(OutputDevice_t::usage);
   for (OutputDevice_t &item : outDevices)
   {
     item.addressState = size;
     size += outStateValueSize;
-    item.addressActive = size;
-    size += outActiveValueSize;
+    item.addressUsage = size;
+    size += outUsageValueSize;
   }
   return size;
 }
@@ -33,16 +33,11 @@ void eepromInitstateInfo()
       item.state = 0.0f;
       EEPROM.put(item.addressState, item.state);
     }
-    byte temp;
-    EEPROM.get(item.addressActive, temp);
-    if (temp != 0xFF)
-    {
-      item.active = (bool)temp;
-    }
-    else
+    EEPROM.get(item.addressUsage, item.usage);
+    if (memchr(item.usage, 0xFF, sizeof(item.usage)))
     { /* init to get rid of 0xFF */
-      item.active = false;
-      EEPROM.put(item.addressActive, item.active);
+      memset(item.usage, '\0', sizeof(item.usage));
+      EEPROM.put(item.addressUsage, item.usage);
     }
   }
 }

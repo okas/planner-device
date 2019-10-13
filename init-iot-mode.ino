@@ -116,9 +116,9 @@ void wsAddConfigParams(JsonObject obj)
   obj["psk"] = WiFi.psk();
   obj["iotType"] = IOT_TYPE;
   JsonArray outputs = obj.createNestedArray("outputs");
-  for (OutputDevice_t &item : outDevices)
+  for (OutputDevice_t &device : outDevices)
   {
-    outputs.add(item.active);
+    outputs.add(device.usage);
   }
 }
 
@@ -143,10 +143,20 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
 
 void wsActivateOutputs(JsonArray outputValues)
 {
+  size_t lenUsage = sizeof(OutputDevice_t::usage);
   for (size_t i = 0; i < lenOutputs; i++)
   {
-    outDevices[i].active = outputValues[i].as<bool>();
-    EEPROM.put(outDevices[i].addressActive, outDevices[i].active);
+    OutputDevice_t &device = outDevices[i];
+    const char *val = outputValues[i] | "";
+    size_t lenVal = strlen(val);
+    memset(device.usage, '\0', lenUsage);
+    if (lenVal > 0)
+    {
+      strncpy(device.usage, val, lenVal < lenUsage ? lenVal : lenUsage);
+      /* Ensure 0-terminated */
+      device.usage[lenUsage - 1] = '\0';
+    }
+    EEPROM.put(device.addressUsage, device.usage);
   }
   EEPROM.commit();
 }

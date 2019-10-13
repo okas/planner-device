@@ -32,12 +32,12 @@ vector<string> strsplit(char *phrase, char *delimiter)
   return ret;
 }
 
-size_t getActiveOutputCount()
+size_t getInUseOutputCount()
 {
   size_t result = 0;
-  for (OutputDevice_t device : outDevices)
+  for (OutputDevice_t &device : outDevices)
   {
-    if (device.active)
+    if (device.usage[0] != '\0')
     {
       result++;
     }
