@@ -59,7 +59,7 @@ void setup()
   Serial.begin(115200);
   eepromInitialize();
   setupInitButton();
-  setupOutputDevices();
+  changeOutputStates();
   setWifiHostname();
   if (/* getActiveOutputCount() && */ wifiStationConnect() && setTopicBase())
   {
@@ -113,19 +113,6 @@ void leaveIotInitMode()
   endInitMode();
   stopLEDBlinker(true);
   // TODO restart ESP here in case of _iotState == IOTState_t::started?
-}
-
-void setupOutputDevices()
-{
-  for (OutputDevice_t &item : outDevices)
-  {
-    if (strlen(item.usage) == 0)
-    {
-      continue;
-    }
-    pinMode(item.pin, OUTPUT);
-    analogWrite(item.pin, round(item.state * 1024));
-  }
 }
 
 void setWifiHostname()

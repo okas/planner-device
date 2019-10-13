@@ -129,6 +129,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   * Old implementation used specialised valu fir MQTT client id, that was part of subscribed topic as well.
   */
   wsStoreOutputsToEEPROM(payloadObj["outputs"]);
+  changeOutputStates();
   bool isWiFiStaConnected = wifiStationInit(payloadObj["ssid"], payloadObj["psk"]);
   _initState = isWiFiStaConnected ? InitState_t::succeed : InitState_t::failed;
   if (webSocket.connectedClients(true))
