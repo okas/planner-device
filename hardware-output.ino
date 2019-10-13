@@ -2,7 +2,7 @@ void changeOutputStates()
 {
   for (OutputDevice_t &device : outDevices)
   {
-    if (strlen(device.usage) == 0)
+    if (strlen(device.usage) > 0)
     {
       pinMode(device.pin, OUTPUT);
       analogWrite(device.pin, round(device.state * 1024));
