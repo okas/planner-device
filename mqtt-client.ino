@@ -92,17 +92,11 @@ JsonDocument mqttGenerateInitPayload()
   DynamicJsonDocument payloadDoc(docSize);
   payloadDoc["iot_type"] = IOT_TYPE;
   auto outputs = payloadDoc.createNestedArray("outputs");
-  for (size_t i = 0, ii = 0; i < lenOutputs; i++)
+  for (OutputDevice_t &device : outDevices)
   {
-    const char *type = outDevices[i].usage;
-    if (strlen(type) == 0)
-    {
-      continue;
-    }
     auto out = outputs.createNestedObject();
-    out["id"] = outDevices[i].id;
-    out["state"] = outDevices[i].state;
-    out["out_type"] = type;
+    out["id"] = device.id;
+    out["usage"] = device.usage;
   }
   return payloadDoc;
 }
