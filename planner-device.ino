@@ -19,17 +19,20 @@ const char *IOT_TYPE = "generic-2out";
 struct OutputDevice_t
 {
   const uint8_t pin;
+  uint64_t id;
   float state;
-  unsigned int addressState;
   char usage[20];
+  unsigned int addressId;
+  unsigned int addressState;
   unsigned int addressUsage;
 };
 
 enum IOTState_t : byte
 {
   started,
-  operating,
-  initMode
+  initMode,
+  initialized,
+  operating
 };
 
 enum InitState_t : byte
@@ -41,6 +44,7 @@ enum InitState_t : byte
   working = 4
 };
 
+unsigned int _AddressIoTState;
 IOTState_t _iotState;
 InitState_t _initState;
 Ticker initMode_ticker;
@@ -61,18 +65,29 @@ void setup()
   setupInitButton();
   changeOutputStates();
   setWifiHostname();
-  if (/* getActiveOutputCount() && */ wifiStationConnect() && setTopicBase())
-  {
-    mqttInit();
-    _iotState = IOTState_t::operating;
+  // Decide when exactly need to go to the Init mode.
+  if (_iotState == IOTState_t::initialized && wifiStationConnect())
+  { /* Normal, initialization is done, and WiFi work. */
+    gotoOperatingMode();
+  }
+  else if (_iotState == IOTState_t::started)
+  { /* IoT node need initialization. */
+    gotoIotInitMode();
   }
   else
-  {
-    // TODO, indicate problem and its kind (WiFi o misconfig), but do not start InitMode on every ocasion!
+  { /* WiFi connection failure, but initialized */
+
     // WiFi.disconnect();
     // startLEDBlinker();
     // gotoIotInitMode();
   }
+}
+
+void gotoOperatingMode()
+{
+  mqttNormalInit();
+  // TODO, what to do, when it fails to pass MQTT Notrlam mode init?
+  _iotState = IOTState_t::operating;
 }
 
 bool gotoIotInitMode()
@@ -83,7 +98,10 @@ bool gotoIotInitMode()
   {
     mqttClient.disconnect();
   }
-  initMode_ticker.once(60, leaveIotInitMode);
+  if (_iotState == IOTState_t::initialized || _iotState == IOTState_t::operating)
+  {
+    initMode_ticker.once(60, leaveIotInitMode);
+  }
   bool ret = startInitMode();
   if (ret)
   {
@@ -101,14 +119,7 @@ void leaveIotInitMode()
 {
   Serial.println(" - - Leaving the Initialization Mode.");
   initMode_ticker.detach();
-  if (_initState == InitState_t::succeed || _initState == InitState_t::idle && mqttClient.connected())
-  {
-    _iotState = IOTState_t::operating;
-  }
-  else
-  {
-    _iotState = IOTState_t::started;
-  }
+  _iotState = _initState == InitState_t::succeed ? IOTState_t::initialized : IOTState_t::started;
   _initState = InitState_t::stopped;
   endInitMode();
   stopLEDBlinker(true);
@@ -139,7 +150,7 @@ void loop()
   case MQTT_DISCONNECTED:
     break;
   default:
-    mqttInit();
+    mqttNormalInit();
   }
   mqttClient.loop();
   webSocket.loop();

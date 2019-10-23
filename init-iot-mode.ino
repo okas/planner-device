@@ -125,24 +125,29 @@ void wsAddConfigParams(JsonObject obj)
 void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloadObj)
 {
   _initState = InitState_t::working;
-  /* TODO: If I/O states change then probably new MQTT topic must be set up.
-  * Old implementation used specialised valu fir MQTT client id, that was part of subscribed topic as well.
-  */
-  wsStoreOutputsToEEPROM(payloadObj["outputs"]);
   changeOutputStates();
-  bool isWiFiStaConnected = wifiStationInit(payloadObj["ssid"], payloadObj["psk"]);
-  _initState = isWiFiStaConnected ? InitState_t::succeed : InitState_t::failed;
+  bool stageSucceed = wifiStationInit(payloadObj["ssid"], payloadObj["psk"]);
+  if (stageSucceed)
+  {
+    // TOOD need feedback the user here or in this funtion whether MQTT
+    // bool stageSucceed = mqttIoTInit();
+    // ToDo obtain ID's from API/MQTT
+  }
+  else
+  {
+    // TODO Tell the user that WiFi is not connected.
+    // TODO Do not change init state, its is nott succeeded just yet!
+  }
+  _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed; // TODO set to ::succeed after MQTT part is done!
   if (webSocket.connectedClients(true))
   {
     wsSetValuesSucceed(num, responseSubject);
   }
-  if (_initState == InitState_t::succeed)
-  {
-    mqttInit();
-  }
+  // TODO store ID' from API/MQTT as well.
+  wsStoreConfigToEEPROM(payloadObj["outputs"]);
 }
 
-void wsStoreOutputsToEEPROM(JsonArray outputValues)
+void wsStoreConfigToEEPROM(JsonArray outputValues)
 {
   size_t lenUsage = sizeof(OutputDevice_t::usage);
   for (size_t i = 0; i < lenOutputs; i++)
@@ -158,7 +163,10 @@ void wsStoreOutputsToEEPROM(JsonArray outputValues)
       device.usage[lenUsage - 1] = '\0';
     }
     EEPROM.put(device.addressUsage, device.usage);
+    device.id = i + 1; // TODO mock value!!
+    EEPROM.put(device.addressId, device.id);
   }
+  EEPROM.put(_AddressIoTState, _iotState = IOTState_t::initialized);
   EEPROM.commit();
 }
 
@@ -180,8 +188,8 @@ JsonDocument wsCreateResponse(const size_t docSize, const char *responseSubject)
 
 bool wsResponseSendTXT(uint8_t num, JsonDocument responseDoc)
 {
-  const size_t size = measureJson(responseDoc) + 1; // make room for \u0 as well.
+  const size_t size = measureJson(responseDoc) + 1; // make room for \0 as well.
   char buffer[size];
   serializeJson(responseDoc, buffer, size);
-  return webSocket.sendTXT(num, buffer, size - 1); // cut off \u0 from data to be sent.
+  return webSocket.sendTXT(num, buffer, size - 1); // cut off \0 from data to be sent.
 }
