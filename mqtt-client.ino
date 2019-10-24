@@ -88,9 +88,9 @@ void mqttPublishIoTInit()
 
 JsonDocument mqttGenerateInitPayload()
 {
-  const size_t docSize = JSON_ARRAY_SIZE(lenOutputs) + JSON_OBJECT_SIZE(2) + (lenOutputs * JSON_OBJECT_SIZE(3));
+  const size_t docSize = JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(lenOutputs) + (lenOutputs * JSON_OBJECT_SIZE(2));
   DynamicJsonDocument payloadDoc(docSize);
-  payloadDoc["iot_type"] = IOT_TYPE;
+  payloadDoc["iottype"] = IOT_TYPE;
   auto outputs = payloadDoc.createNestedArray("outputs");
   for (OutputDevice_t &device : outDevices)
   {
