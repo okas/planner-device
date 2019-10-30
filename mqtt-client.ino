@@ -10,6 +10,7 @@ const char *nodeName = "iotnode";
 const char *cmndState = "state";
 const char *cmndSetState = "set-state";
 const char *cmndInit = "init";
+const char *respInit = "init-r";
 
 bool mqttConnect(uint8_t limit = 0);
 
@@ -65,9 +66,6 @@ bool mqttConnect(uint8_t limit)
 bool mqttSubscriberIoTInit()
 {
   char topic[80];
-  char respInit[strlen(cmndInit + 3)];
-  strcat(respInit, cmndInit);
-  strcat(respInit, "-r\0");
   mqttGetSubscrForOther(topic, nodeName, WiFi.macAddress().c_str(), respInit);
   Serial.printf("- -subscribing to Init topic is : \"%s\"\n", topic);
   return mqttClient.subscribe(topic);
