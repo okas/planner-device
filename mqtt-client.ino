@@ -38,7 +38,7 @@ void mqttInit()
 {
   mqttClient.setClient(espClient);
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
-  mqttClient.setCallback(onMessage);
+  mqttClient.setCallback(logMessage).setCallback(commandMessageHandler);
 }
 
 bool mqttConnect(uint8_t limit)
@@ -183,12 +183,6 @@ void generateSubscriptionBase(char *buffer, const char *type, const char *id)
   strcat(buffer, type);
   strcat(buffer, "/");
   strcat(buffer, id);
-}
-
-void onMessage(char *topic, byte *payload, unsigned int length)
-{
-  logMessage(topic, payload, length);
-  commandMessageHandler(topic, payload, length);
 }
 
 void logMessage(char *topic, byte *payload, size_t length)
