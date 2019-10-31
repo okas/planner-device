@@ -66,7 +66,8 @@ void setup()
   strncpy(iotNodeId, getWiFiMACHex(), sizeof(iotNodeId) - 1);
   setupInitButton();
   changeOutputStates();
-  setWifiHostname();
+  strncpy(wifiHostname, getWifiHostname(), sizeof(wifiHostname) - 1);
+  WiFi.hostname(wifiHostname);
   // Decide when exactly need to go to the Init mode.
   if (_iotState == IOTState_t::initialized && wifiStationConnect())
   { /* Normal, initialization is done, and WiFi work. */
