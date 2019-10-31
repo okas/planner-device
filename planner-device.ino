@@ -15,6 +15,7 @@
 using namespace std;
 
 const char *IOT_TYPE = "generic-2out";
+char iotNodeId[13];
 
 struct OutputDevice_t
 {
@@ -62,6 +63,7 @@ void setup()
 {
   Serial.begin(115200);
   eepromInitialize();
+  strncpy(iotNodeId, getWiFiMACHex(), sizeof(iotNodeId) - 1);
   setupInitButton();
   changeOutputStates();
   setWifiHostname();

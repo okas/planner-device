@@ -45,12 +45,12 @@ void mqttInit()
 bool mqttConnect(uint8_t limit)
 {
   char lastWillTopic[80];
-  mqttGetSubscrForOther(lastWillTopic, nodeName, WiFi.macAddress().c_str(), "lost");
+  mqttGetSubscrForOther(lastWillTopic, nodeName, iotNodeId, "lost");
   Serial.printf("- - lastWillTopic is : \"%s\"\n", lastWillTopic);
   for (size_t i = 0; !mqttClient.connected() && i < limit; i = limit ? i + 1 : 0)
   {
     Serial.println(" Connecting to MQTT...");
-    if (mqttClient.connect(WiFi.macAddress().c_str(), mqttUser, mqttPassword, lastWillTopic, 0, false, ""))
+    if (mqttClient.connect(iotNodeId, mqttUser, mqttPassword, lastWillTopic, 0, false, ""))
     {
       Serial.println(" MQTT connected!");
     }
@@ -66,7 +66,7 @@ bool mqttConnect(uint8_t limit)
 bool mqttSubscriberIoTInit()
 {
   char topic[80];
-  mqttGetSubscrForOther(topic, nodeName, WiFi.macAddress().c_str(), respInit);
+  mqttGetSubscrForOther(topic, nodeName, iotNodeId, respInit);
   Serial.printf("- -subscribing to Init topic is : \"%s\"\n", topic);
   return mqttClient.subscribe(topic);
 }
@@ -74,7 +74,7 @@ bool mqttSubscriberIoTInit()
 void mqttPublishIoTInit()
 {
   char topic[80];
-  mqttGetSubscrForOther(topic, nodeName, WiFi.macAddress().c_str(), cmndInit);
+  mqttGetSubscrForOther(topic, nodeName, iotNodeId, cmndInit);
   JsonDocument payloadDoc = mqttGenerateInitPayload();
   const size_t size = measureJson(payloadDoc) + 1; // make room for \0 as well.
   char buffer[size];
@@ -130,7 +130,7 @@ void mqttPublishPresentNormal()
 {
   // Todo -- for every output and node?
   char topic[80];
-  mqttGetSubscrForOther(topic, nodeName, WiFi.macAddress().c_str(), "present");
+  mqttGetSubscrForOther(topic, nodeName, iotNodeId, "present");
   JsonDocument payloadDoc = mqttGeneratePresentPayload();
   const size_t size = measureJson(payloadDoc) + 1; // make room for \0 as well.
   char buffer[size];
