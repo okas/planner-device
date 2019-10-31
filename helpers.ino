@@ -45,6 +45,21 @@ size_t getInUseOutputCount()
   return result;
 }
 
+char *getWifiHostname()
+{
+  uint8_t mac[6];
+  char result[13] = {0};
+  WiFi.macAddress(mac);
+  strcpy(result, "ESP_");
+  for (size_t i = 3; i < 6; i++)
+  {
+    char b[3];
+    sprintf(b, "%02X", mac[i]);
+    strcat(result, b);
+  }
+  return result;
+}
+
 char *getWiFiMACHex()
 {
   uint8_t mac[6];
