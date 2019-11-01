@@ -315,3 +315,32 @@ char *createResponseTopic(const vector<string> topicTokens)
   }
   return result;
 }
+
+const char *mqttHelpGetStateTxt(int status)
+{
+  switch (status)
+  {
+  case MQTT_CONNECTION_TIMEOUT:
+    return "MQTT_CONNECTION_TIMEOUT";
+  case MQTT_CONNECTION_LOST:
+    return "MQTT_CONNECTION_LOST";
+  case MQTT_CONNECT_FAILED:
+    return "MQTT_CONNECT_FAILED";
+  case MQTT_DISCONNECTED:
+    return "MQTT_DISCONNECTED";
+  case MQTT_CONNECTED:
+    return "MQTT_CONNECTED";
+  case MQTT_CONNECT_BAD_PROTOCOL:
+    return "MQTT_CONNECT_BAD_PROTOCOL";
+  case MQTT_CONNECT_BAD_CLIENT_ID:
+    return "MQTT_CONNECT_BAD_CLIENT_ID";
+  case MQTT_CONNECT_UNAVAILABLE:
+    return "MQTT_CONNECT_UNAVAILABLE";
+  case MQTT_CONNECT_BAD_CREDENTIALS:
+    return "MQTT_CONNECT_BAD_CREDENTIALS";
+  case MQTT_CONNECT_UNAUTHORIZED:
+    return "MQTT_CONNECT_UNAUTHORIZED";
+  default:
+    return "UNKNOWN MQTT STATUS!";
+  }
+}
