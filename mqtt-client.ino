@@ -18,12 +18,19 @@ bool mqttConnect(uint8_t limit = 0);
 
 bool mqttIoTInit()
 {
-  bool result;
-  // TODO if ladder?
   mqttInit();
-  mqttConnect(2);
-  mqttSubscriberIoTInit();
-  mqttPublishIoTInit();
+  if (!mqttConnect(2))
+  {
+    return false;
+  }
+  if (!mqttSubscriberIoTInit())
+  {
+    return false;
+  }
+  if (mqttPublishIoTInit())
+  {
+    return false;
+  }
   return true;
 }
 
@@ -53,6 +60,7 @@ bool mqttConnect(uint8_t limit)
     if (mqttClient.connect(iotNodeId, mqttUser, mqttPassword, lastWillTopic, 0, false, ""))
     {
       Serial.println(" MQTT connected!");
+      return true;
     }
     else
     {
@@ -61,6 +69,7 @@ bool mqttConnect(uint8_t limit)
       delay(2000);
     }
   }
+  return false;
 }
 
 bool mqttSubscriberIoTInit()
@@ -71,7 +80,7 @@ bool mqttSubscriberIoTInit()
   return mqttClient.subscribe(topic);
 }
 
-void mqttPublishIoTInit()
+bool mqttPublishIoTInit()
 {
   char topic[80];
   mqttGetSubscrForOther(topic, nodeName, iotNodeId, cmndInit);
@@ -79,9 +88,9 @@ void mqttPublishIoTInit()
   const size_t size = measureJson(payloadDoc) + 1; // make room for \0 as well.
   char buffer[size];
   serializeJson(payloadDoc, buffer, size);
-  mqttClient.publish(topic, buffer);
   Serial.printf("- - publishing Init topic : \"%s\"\n", topic);
   Serial.printf("- - payload is : \"%s\"\n", buffer);
+  return mqttClient.publish(topic, buffer);
 }
 
 JsonDocument mqttGenerateInitPayload()

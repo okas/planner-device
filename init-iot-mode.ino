@@ -126,19 +126,17 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
 {
   _initState = InitState_t::working;
   changeOutputStates();
-  bool stageSucceed = wifiStationInit(payloadObj["ssid"], payloadObj["psk"]);
-  if (stageSucceed)
+  if (!wifiStationInit(payloadObj["ssid"], payloadObj["psk"]))
   {
-    // TOOD need feedback the user here or in this funtion whether MQTT
-    // bool stageSucceed = mqttIoTInit();
-    // ToDo obtain ID's from API/MQTT
+    // TODO send MQTT status to browser
   }
-  else
+  if (!mqttIoTInit())
   {
-    // TODO Tell the user that WiFi is not connected.
-    // TODO Do not change init state, its is nott succeeded just yet!
+    // TODO send MQTT status to browser
   }
-  _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed; // TODO set to ::succeed after MQTT part is done!
+
+  //TODO this line cab be only called after async response from MQTT API
+  // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
   if (webSocket.connectedClients(true))
   {
     wsSetValuesSucceed(num, responseSubject);
