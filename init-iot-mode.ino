@@ -2,8 +2,11 @@
 
 const char *STA_WIFI_KEY = "hellohello";
 const float leaveInitTimeout = 30;
+const char *staDet = "stateDetails";
 
 /* --- Init Mode */
+
+JsonDocument wsCreateResponse(const size_t, const char *, bool details = true);
 
 bool startInitMode()
 {
@@ -174,7 +177,7 @@ void wsStoreConfigToEEPROM(JsonArray outputValues)
 bool wsSendState(uint8_t num, const char *responseSubject)
 {
   const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1);
-  JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
+  JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject, false);
   return wsSendTxtJsonResponse(num, responseDoc);
 }
 
@@ -183,16 +186,23 @@ bool wsSendStateDetails(uint8_t num, const char *responseSubject, const char *st
   const size_t detailsCount = 1; // TODO Subject to change if array of messages need to be sent.
   const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(detailsCount) + detailsCount * JSON_OBJECT_SIZE(1);
   JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
-  responseDoc[1].createNestedArray("stateDetails").createNestedObject()[step] = descr;
+  if (strlen(step))
+  {
+    responseDoc[1][staDet].createNestedObject()[step] = descr;
+  }
   return wsSendTxtJsonResponse(num, responseDoc);
 }
 
-JsonDocument wsCreateResponse(const size_t docSize, const char *responseSubject)
+JsonDocument wsCreateResponse(const size_t docSize, const char *responseSubject, bool details)
 {
   DynamicJsonDocument responseDoc(docSize);
   responseDoc.add(responseSubject);
   JsonObject data = responseDoc.createNestedObject();
   data["state"] = (byte)_initState; // otherwise inferes wrong type (boolean)
+  if (details)
+  {
+    data.createNestedArray(staDet);
+  }
   return responseDoc;
 }
 
