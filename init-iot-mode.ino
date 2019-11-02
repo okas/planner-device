@@ -128,13 +128,13 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   changeOutputStates();
   if (!wifiStationInit(payloadObj["ssid"], payloadObj["psk"]))
   {
-    wsSetValuesSendStateDetails(num, responseSubject, "WiFi", "< test state >");
+    wsSendStateDetails(num, responseSubject, "WiFi", "< test state >");
     return;
   }
   int mqttState;
   if (!(mqttState = mqttIoTInit()))
   {
-    wsSetValuesSendStateDetails(num, responseSubject, "MQTT", mqttHelpGetStateTxt(mqttState));
+    wsSendStateDetails(num, responseSubject, "MQTT", mqttHelpGetStateTxt(mqttState));
     return;
   }
 
@@ -142,7 +142,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
   if (webSocket.connectedClients(true))
   {
-    wsSetValuesSendState(num, responseSubject);
+    wsSendState(num, responseSubject);
   }
   // TODO store ID' from API/MQTT as well.
   wsStoreConfigToEEPROM(payloadObj["outputs"]);
@@ -171,14 +171,14 @@ void wsStoreConfigToEEPROM(JsonArray outputValues)
   EEPROM.commit();
 }
 
-bool wsSetValuesSendState(uint8_t num, const char *responseSubject)
+bool wsSendState(uint8_t num, const char *responseSubject)
 {
   const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1);
   JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
   return wsSendTxtJsonResponse(num, responseDoc);
 }
 
-bool wsSetValuesSendStateDetails(uint8_t num, const char *responseSubject, const char *step, const char *descr)
+bool wsSendStateDetails(uint8_t num, const char *responseSubject, const char *step, const char *descr)
 {
   const size_t detailsCount = 1; // TODO Subject to change if array of messages need to be sent.
   const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(detailsCount) + detailsCount * JSON_OBJECT_SIZE(1);
