@@ -6,6 +6,8 @@ const char *staDet = "stateDetails";
 
 /* --- Init Mode */
 
+// 2 member: `state` and `stateDetails`.
+const size_t wsCalcResponseBaseSize(size_t dataMemberCount = 2);
 JsonDocument wsCreateResponse(const size_t, const char *, bool details = true);
 
 bool startInitMode()
@@ -113,26 +115,6 @@ void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurren
   wsSendTxtJsonResponse(num, responseDoc);
 }
 
-// Calculates necessary JSON doc size for serialization.
-// NB! Assumes all string members as `const char*`!
-// If any of string members are other type then add thos lenght+1 to this result.
-// Source: https://arduinojson.org/v6/faq/why-is-the-output-incomplete/
-const size_t wsGetInitStateJsonCapacity(bool includeCurrentConfig, int detailsCount)
-{
-  /* Base JSON with WS subject;
-   * Data part has state and stateDetails by default,
-   * but dynamically count in Config members. */
-  const size_t dataMembers = includeCurrentConfig ? 7 : 2;
-  size_t result = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(dataMembers);
-  /* Add stateDetails:[] and its members. */
-  result += JSON_ARRAY_SIZE(detailsCount) + detailsCount * JSON_OBJECT_SIZE(1);
-  if (includeCurrentConfig)
-  { /* Dynamically add IoT Config outputs:[] */
-    result += JSON_ARRAY_SIZE(lenOutputs);
-  }
-  return result;
-}
-
 void wsAddConfigParams(JsonObject obj)
 {
   obj["iotDeviceId"] = (const char *)iotNodeId;
@@ -197,7 +179,8 @@ void wsStoreConfigToEEPROM(JsonArray outputValues)
 
 bool wsSendState(uint8_t num, const char *responseSubject)
 {
-  const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1);
+  /* Size w/ only `state` member. */
+  const size_t capacity = wsCalcResponseBaseSize(1);
   JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject, false);
   return wsSendTxtJsonResponse(num, responseDoc);
 }
@@ -205,7 +188,7 @@ bool wsSendState(uint8_t num, const char *responseSubject)
 bool wsSendStateDetails(uint8_t num, const char *responseSubject, const char *step, const char *descr)
 {
   const size_t detailsCount = 1; // TODO Subject to change if array of messages need to be sent.
-  const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(detailsCount) + detailsCount * JSON_OBJECT_SIZE(1);
+  const size_t capacity = wsCalcResponseBaseSize() + wsCalcStateDetailsSize(detailsCount);
   JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
   if (strlen(step))
   {
@@ -233,4 +216,42 @@ bool wsSendTxtJsonResponse(uint8_t num, JsonDocument responseDoc)
   char buffer[size];
   serializeJson(responseDoc, buffer, size);
   return webSocket.sendTXT(num, buffer, size - 1); // cut off \0 from data to be sent.
+}
+
+/*
+ * Base response size, with WS subject part. Corresponds to:
+ * ["request-R",{"state":"","stateDetails":[]]}]
+ */
+const size_t wsCalcResponseBaseSize(size_t dataMemberCount)
+{
+  return JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(dataMemberCount);
+}
+
+/*
+ * Response's data object `stateDetails` array member's dynamic size. Corresponds to:
+ * [{"name":"value"},{"name":"value"}]
+ */
+const size_t wsCalcStateDetailsSize(size_t detailsCount)
+{
+  return JSON_ARRAY_SIZE(detailsCount) + detailsCount * JSON_OBJECT_SIZE(1);
+}
+
+/*
+ * Calculates necessary JSON doc size for serialization.
+ * NB! Assumes all string members as `const char*`!
+ * If any of string members are other type then add thos lenght+1 to this result.
+ * Source: https://arduinojson.org/v6/faq/why-is-the-output-incomplete/
+ */
+const size_t wsGetInitStateJsonCapacity(bool includeCurrentConfig, int detailsCount)
+{
+  /* Data part has `state` and `stateDetails` by default;
+   * but dynamically count in Config members;
+   * dynamically add Details size. */
+  size_t result = wsCalcResponseBaseSize(includeCurrentConfig ? 7 : 2) + wsCalcStateDetailsSize(detailsCount);
+  /* Add stateDetails:[] and its members. */
+  if (includeCurrentConfig)
+  { /* Dynamically add IoT Config outputs:[] */
+    result += JSON_ARRAY_SIZE(lenOutputs);
+  }
+  return result;
 }
