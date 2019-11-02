@@ -101,10 +101,11 @@ void wsTXTMessageHandler(uint8_t num, char *payload, size_t lenght)
 
 void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurrentConfig)
 {
-  const size_t capacity = 2 * JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(6) + includeCurrentConfig
-                              ? 300
-                              : 30;
+  const size_t detailsCount = 1; // TODO Subject to change if array of messages need to be sent.
+  const size_t capacity = wsGetInitStateJsonCapacity(includeCurrentConfig, detailsCount);
   JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
+  // TODO Either add some meaningful or nothing as a Status Detail.
+  responseDoc[1][staDet].createNestedObject()["IoT_Node"] = "# not sure ... #";
   if (includeCurrentConfig)
   {
     wsAddConfigParams(responseDoc[1]);
@@ -112,16 +113,36 @@ void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurren
   wsSendTxtJsonResponse(num, responseDoc);
 }
 
+// Calculates necessary JSON doc size for serialization.
+// NB! Assumes all string members as `const char*`!
+// If any of string members are other type then add thos lenght+1 to this result.
+// Source: https://arduinojson.org/v6/faq/why-is-the-output-incomplete/
+const size_t wsGetInitStateJsonCapacity(bool includeCurrentConfig, int detailsCount)
+{
+  /* Base JSON with WS subject;
+   * Data part has state and stateDetails by default,
+   * but dynamically count in Config members. */
+  const size_t dataMembers = includeCurrentConfig ? 7 : 2;
+  size_t result = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(dataMembers);
+  /* Add stateDetails:[] and its members. */
+  result += JSON_ARRAY_SIZE(detailsCount) + detailsCount * JSON_OBJECT_SIZE(1);
+  if (includeCurrentConfig)
+  { /* Dynamically add IoT Config outputs:[] */
+    result += JSON_ARRAY_SIZE(lenOutputs);
+  }
+  return result;
+}
+
 void wsAddConfigParams(JsonObject obj)
 {
-  obj["iotDeviceId"] = WiFi.macAddress();
-  obj["ssid"] = WiFi.SSID();
-  obj["psk"] = WiFi.psk();
+  obj["iotDeviceId"] = (const char *)iotNodeId;
+  obj["ssid"] = WiFi.SSID().c_str();
+  obj["psk"] = WiFi.psk().c_str();
   obj["iotType"] = IOT_TYPE;
   JsonArray outputs = obj.createNestedArray("outputs");
   for (OutputDevice_t &device : outDevices)
   {
-    outputs.add(device.usage);
+    outputs.add((const char *)device.usage);
   }
 }
 
