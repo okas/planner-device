@@ -106,7 +106,7 @@ void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurren
   {
     wsAddConfigParams(responseDoc[1]);
   }
-  wsResponseSendTXT(num, responseDoc);
+  wsSendTxtJsonResponse(num, responseDoc);
 }
 
 void wsAddConfigParams(JsonObject obj)
@@ -128,18 +128,21 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   changeOutputStates();
   if (!wifiStationInit(payloadObj["ssid"], payloadObj["psk"]))
   {
-    // TODO send MQTT status to browser
+    wsSetValuesSendStateDetails(num, responseSubject, "WiFi", "< test state >");
+    return;
   }
-  if (!mqttIoTInit())
+  int mqttState;
+  if (!(mqttState = mqttIoTInit()))
   {
-    // TODO send MQTT status to browser
+    wsSetValuesSendStateDetails(num, responseSubject, "MQTT", mqttHelpGetStateTxt(mqttState));
+    return;
   }
 
   //TODO this line cab be only called after async response from MQTT API
   // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
   if (webSocket.connectedClients(true))
   {
-    wsSetValuesSucceed(num, responseSubject);
+    wsSetValuesSendState(num, responseSubject);
   }
   // TODO store ID' from API/MQTT as well.
   wsStoreConfigToEEPROM(payloadObj["outputs"]);
@@ -168,11 +171,20 @@ void wsStoreConfigToEEPROM(JsonArray outputValues)
   EEPROM.commit();
 }
 
-bool wsSetValuesSucceed(uint8_t num, const char *responseSubject)
+bool wsSetValuesSendState(uint8_t num, const char *responseSubject)
 {
-  const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + 30;
+  const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1);
   JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
-  return wsResponseSendTXT(num, responseDoc);
+  return wsSendTxtJsonResponse(num, responseDoc);
+}
+
+bool wsSetValuesSendStateDetails(uint8_t num, const char *responseSubject, const char *step, const char *descr)
+{
+  const size_t detailsCount = 1; // TODO Subject to change if array of messages need to be sent.
+  const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(detailsCount) + detailsCount * JSON_OBJECT_SIZE(1);
+  JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
+  responseDoc[1].createNestedArray("stateDetails").createNestedObject()[step] = descr;
+  return wsSendTxtJsonResponse(num, responseDoc);
 }
 
 JsonDocument wsCreateResponse(const size_t docSize, const char *responseSubject)
@@ -184,7 +196,7 @@ JsonDocument wsCreateResponse(const size_t docSize, const char *responseSubject)
   return responseDoc;
 }
 
-bool wsResponseSendTXT(uint8_t num, JsonDocument responseDoc)
+bool wsSendTxtJsonResponse(uint8_t num, JsonDocument responseDoc)
 {
   const size_t size = measureJson(responseDoc) + 1; // make room for \0 as well.
   char buffer[size];
