@@ -157,10 +157,13 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
     delay(1000);
     wifiResult = WiFi.status();
   }
-  wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
   if (wifiResult != WL_CONNECTED)
   {
     _initState = InitState_t::failed;
+  }
+  wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
+  if (wifiResult != WL_CONNECTED)
+  {
     WiFi.setAutoReconnect(false);
     WiFi.disconnect(true);
     return;
