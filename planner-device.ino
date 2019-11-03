@@ -97,6 +97,7 @@ bool gotoIotInitMode()
 {
   Serial.println(" - - Going to Initialization Mode.");
   startLEDBlinker();
+  WiFi.disconnect(true);
   if (mqttClient.connected())
   {
     mqttClient.disconnect();

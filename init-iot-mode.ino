@@ -144,18 +144,46 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
 {
   _initState = InitState_t::working;
   changeOutputStates();
-  if (!wifiStationInit(payloadObj["ssid"], payloadObj["psk"]))
+  // if (!wifiStationInit(payloadObj["ssid"], payloadObj["psk"]))
+  wl_status_t wifiResult = WiFi.begin(payloadObj["ssid"].as<char *>(), payloadObj["psk"].as<char *>());
+  for (size_t i = 0; i < 10; i++)
   {
-    wsSendStateDetails(num, responseSubject, "WiFi", "< test state >");
+    if (wifiResult == WL_CONNECTED)
+    {
+      break;
+    }
+    /* if/else clauses could check other statuses as well, but so far only dis/connect is returned :-( */
+    wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
+    delay(1000);
+    wifiResult = WiFi.status();
+  }
+  wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
+  if (wifiResult != WL_CONNECTED)
+  {
+    _initState = InitState_t::failed;
+    WiFi.setAutoReconnect(false);
+    WiFi.disconnect(true);
     return;
   }
-  int mqttState;
-  if (!(mqttState = mqttIoTInit()))
+  //  === WiFi == !
+  // ! === SUCCESS->END ===
+  _initState = InitState_t::succeed;
+  // TODO store ID' from API/MQTT as well.
+  wsStoreConfigToEEPROM(payloadObj["outputs"]);
+  wsSendState(num, responseSubject);
+  return;
+  // === SUCCESS->END === !
+  // ! === MQTT ===
+  int mqttState = mqttIoTInit();
+  setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
+  wsSendStateDetails(num, responseSubject);
+  if (!mqttState)
   {
-    wsSendStateDetails(num, responseSubject, "MQTT", mqttHelpGetStateTxt(mqttState));
+    _initState = InitState_t::failed;
     return;
   }
-
+  setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
+  wsSendStateDetails(num, responseSubject);
   //TODO this line cab be only called after async response from MQTT API
   // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
   if (webSocket.connectedClients(true))
@@ -163,7 +191,15 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
     wsSendState(num, responseSubject);
   }
   // TODO store ID' from API/MQTT as well.
-  wsStoreConfigToEEPROM(payloadObj["outputs"]);
+}
+
+void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t result)
+{
+  char wifiResultStr[sizeof(result) + 1];
+  itoa(result, wifiResultStr, 10);
+  setPhase("wifi", wifiResultStr);
+  Serial.printf(" - - - wifiResultStr: %s \n", wifiResultStr);
+  wsSendStateDetails(num, responseSubject);
 }
 
 void wsStoreConfigToEEPROM(JsonArray outputValues)
