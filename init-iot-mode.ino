@@ -218,7 +218,7 @@ bool wsSendTxtJsonResponse(uint8_t num, JsonDocument responseDoc)
   return webSocket.sendTXT(num, buffer, size - 1); // cut off \0 from data to be sent.
 }
 
-/*
+/**
  * Base response size, with WS subject part. Corresponds to:
  * ["request-R",{"state":"","stateDetails":[]]}]
  */
@@ -227,7 +227,7 @@ const size_t wsCalcResponseBaseSize(size_t dataMemberCount)
   return JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(dataMemberCount);
 }
 
-/*
+/**
  * Response's data object `stateDetails` array member's dynamic size. Corresponds to:
  * [{"name":"value"},{"name":"value"}]
  */
@@ -236,7 +236,7 @@ const size_t wsCalcStateDetailsSize(size_t detailsCount)
   return JSON_ARRAY_SIZE(detailsCount) + detailsCount * JSON_OBJECT_SIZE(1);
 }
 
-/*
+/**
  * Calculates necessary JSON doc size for serialization.
  * NB! Assumes all string members as `const char*`!
  * If any of string members are other type then add thos lenght+1 to this result.

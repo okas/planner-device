@@ -44,9 +44,10 @@ void mqttNormalInit()
 
 void mqttInit()
 {
-  mqttClient.setClient(espClient);
-  mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
-  mqttClient.setCallback(logMessage).setCallback(commandMessageHandler);
+  mqttClient.setClient(espClient)
+      .setServer(MQTT_SERVER, MQTT_PORT)
+      .setCallback(logMessage)
+      .setCallback(commandMessageHandler);
 }
 
 bool mqttConnect(uint8_t limit)
