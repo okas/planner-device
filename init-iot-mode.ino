@@ -118,7 +118,7 @@ void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurren
   const size_t capacity = wsGetInitStateJsonCapacity(includeCurrentConfig, detailsCount);
   JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
   // TODO Either add some meaningful or nothing as a Status Detail.
-  responseDoc[1][staDet].createNestedObject()["IoT_Node"] = "# not sure ... #";
+  wsAddStateDetails(responseDoc);
   if (includeCurrentConfig)
   {
     wsAddConfigParams(responseDoc[1]);
@@ -196,15 +196,17 @@ bool wsSendState(uint8_t num, const char *responseSubject)
   return wsSendTxtJsonResponse(num, responseDoc);
 }
 
+bool wsSendStateDetails(uint8_t num, const char *responseSubject)
+{
+  return wsSendStateDetails(num, responseSubject, getPhaseStep(), getPhaseDesc());
+}
+
 bool wsSendStateDetails(uint8_t num, const char *responseSubject, const char *step, const char *descr)
 {
   const size_t detailsCount = 1; // TODO Subject to change if array of messages need to be sent.
   const size_t capacity = wsCalcResponseBaseSize() + wsCalcStateDetailsSize(detailsCount);
   JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
-  if (strlen(step))
-  {
-    responseDoc[1][staDet].createNestedObject()[step] = descr;
-  }
+  wsAddStateDetails(responseDoc, step, descr);
   return wsSendTxtJsonResponse(num, responseDoc);
 }
 
@@ -219,6 +221,19 @@ JsonDocument wsCreateResponse(const size_t docSize, const char *responseSubject,
     data.createNestedArray(staDet);
   }
   return responseDoc;
+}
+
+void wsAddStateDetails(JsonDocument doc)
+{
+  wsAddStateDetails(doc, getPhaseStep(), getPhaseDesc());
+}
+
+void wsAddStateDetails(JsonDocument doc, const char *step, const char *descr)
+{
+  if (strlen(step))
+  {
+    doc[1][staDet].createNestedObject()[step] = descr;
+  }
 }
 
 bool wsSendTxtJsonResponse(uint8_t num, JsonDocument responseDoc)
