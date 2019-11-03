@@ -4,6 +4,12 @@ const char *STA_WIFI_KEY = "hellohello";
 const float leaveInitTimeout = 30;
 const char *staDet = "stateDetails";
 
+struct InitStatePhase_t
+{
+  char step[16];
+  char desc[31];
+} _currentPhase;
+
 /* --- Init Mode */
 
 // 2 member: `state` and `stateDetails`.
@@ -17,6 +23,7 @@ bool startInitMode()
   if (result)
   {
     wsInit();
+    setPhase("IoT Node", "idle");
   }
   return result;
 }
@@ -50,6 +57,7 @@ bool endInitMode()
 {
   webSocket.close();
   WiFi.softAPdisconnect();
+  clearPhase();
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
@@ -257,4 +265,26 @@ const size_t wsGetInitStateJsonCapacity(bool includeCurrentConfig, int detailsCo
     result += JSON_ARRAY_SIZE(lenOutputs);
   }
   return result;
+}
+
+void setPhase(const char *step, const char *desc)
+{
+  strncpy(_currentPhase.step, step, sizeof(_currentPhase.step) - 1);
+  strncpy(_currentPhase.desc, desc, sizeof(_currentPhase.desc) - 1);
+}
+
+void clearPhase()
+{
+  memset(_currentPhase.step, '\0', sizeof(_currentPhase.step));
+  memset(_currentPhase.desc, '\0', sizeof(_currentPhase.desc));
+}
+
+const char *getPhaseStep()
+{
+  return _currentPhase.step;
+}
+
+const char *getPhaseDesc()
+{
+  return _currentPhase.desc;
 }
