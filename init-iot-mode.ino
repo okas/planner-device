@@ -58,8 +58,11 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
   {
   case WStype_DISCONNECTED: // if the websocket is disconnected
   {
+    if (_initState == InitState_t::succeed)
+    {
     Serial.printf(" - - In %fs leaving Initialization Mode.\n", leaveInitTimeout);
     initMode_ticker.once(leaveInitTimeout, leaveIotInitMode);
+    }
     break;
   }
   case WStype_CONNECTED: // if a new websocket connection is established
