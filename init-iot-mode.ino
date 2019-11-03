@@ -223,12 +223,12 @@ JsonDocument wsCreateResponse(const size_t docSize, const char *responseSubject,
   return responseDoc;
 }
 
-void wsAddStateDetails(JsonDocument doc)
+void wsAddStateDetails(JsonDocument &doc)
 {
   wsAddStateDetails(doc, getPhaseStep(), getPhaseDesc());
 }
 
-void wsAddStateDetails(JsonDocument doc, const char *step, const char *descr)
+void wsAddStateDetails(JsonDocument &doc, const char *step, const char *descr)
 {
   if (strlen(step))
   {
@@ -236,11 +236,11 @@ void wsAddStateDetails(JsonDocument doc, const char *step, const char *descr)
   }
 }
 
-bool wsSendTxtJsonResponse(uint8_t num, JsonDocument responseDoc)
+bool wsSendTxtJsonResponse(uint8_t num, JsonDocument &doc)
 {
-  const size_t size = measureJson(responseDoc) + 1; // make room for \0 as well.
+  const size_t size = measureJson(doc) + 1; // make room for \0 as well.
   char buffer[size];
-  serializeJson(responseDoc, buffer, size);
+  serializeJson(doc, buffer, size);
   return webSocket.sendTXT(num, buffer, size - 1); // cut off \0 from data to be sent.
 }
 
