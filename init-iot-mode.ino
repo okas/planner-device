@@ -68,8 +68,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
   {
     if (_initState == InitState_t::succeed)
     {
-    Serial.printf(" - - In %fs leaving Initialization Mode.\n", leaveInitTimeout);
-    initMode_ticker.once(leaveInitTimeout, leaveIotInitMode);
+      Serial.printf(" - - In %fs leaving Initialization Mode.\n", leaveInitTimeout);
+      initMode_ticker.once(leaveInitTimeout, leaveIotInitMode);
     }
     break;
   }
@@ -169,7 +169,11 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
     return;
   }
   //  === WiFi == !
+
+  //  === MQTT == !
   // ! === SUCCESS->END ===
+  //TODO this line cab be only called after async response from MQTT API
+  // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
   _initState = InitState_t::succeed;
   // TODO store ID' from API/MQTT as well.
   wsStoreConfigToEEPROM(payloadObj["outputs"]);
@@ -187,13 +191,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   }
   setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
   wsSendStateDetails(num, responseSubject);
-  //TODO this line cab be only called after async response from MQTT API
-  // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
-  if (webSocket.connectedClients(true))
-  {
-    wsSendState(num, responseSubject);
-  }
-  // TODO store ID' from API/MQTT as well.
+
 }
 
 void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t result)
