@@ -148,7 +148,9 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   _initState = InitState_t::working;
   changeOutputStates();
   // if (!wifiStationInit(payloadObj["ssid"], payloadObj["psk"]))
-  wl_status_t wifiResult = WiFi.begin(payloadObj["ssid"].as<char *>(), payloadObj["psk"].as<char *>());
+  const char *ssid = payloadObj["ssid"];
+  const char *psk = payloadObj["psk"];
+  wl_status_t wifiResult = WiFi.begin(ssid, psk);
   for (size_t i = 0; i < 10; i++)
   {
     if (wifiResult == WL_CONNECTED)
