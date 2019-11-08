@@ -16,22 +16,10 @@ bool mqttConnect(uint8_t limit = 0);
 
 /* --- MQTT */
 
-bool mqttIoTInit()
+int mqttIoTInit()
 {
   mqttInit();
-  if (!mqttConnect(2))
-  {
-    return false;
-  }
-  if (!mqttSubscriberIoTInit())
-  {
-    return false;
-  }
-  if (mqttPublishIoTInit())
-  {
-    return false;
-  }
-  return true;
+  return (!mqttConnect(2) && !mqttSubscriberIoTInit() && !mqttPublishIoTInit(), mqttClient.state());
 }
 
 void mqttNormalInit()

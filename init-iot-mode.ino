@@ -178,10 +178,23 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
     return;
   }
   //  === WiFi == !
-
+  // ! === MQTT ===
+  int mqttState = mqttIoTInit();
+  if (!mqttState)
+  {
+    _initState = InitState_t::failed;
+  }
+  setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
+  wsSendStateDetails(num, responseSubject);
+  if (mqttState != MQTT_CONNECTED)
+  {
+    return;
+  }
+  return;
+  // TODO add ID retreival here
   //  === MQTT == !
   // ! === SUCCESS->END ===
-  //TODO this line cab be only called after async response from MQTT API
+  //TODO this line can be only called after async response from MQTT API
   // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
   _initState = InitState_t::succeed;
   // TODO store ID' from API/MQTT as well.
@@ -189,18 +202,6 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   wsSendState(num, responseSubject);
   return;
   // === SUCCESS->END === !
-  // ! === MQTT ===
-  int mqttState = mqttIoTInit();
-  setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
-  wsSendStateDetails(num, responseSubject);
-  if (!mqttState)
-  {
-    _initState = InitState_t::failed;
-    return;
-  }
-  setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
-  wsSendStateDetails(num, responseSubject);
-
 }
 
 void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t result)
