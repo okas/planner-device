@@ -35,6 +35,11 @@ bool softAPInit()
   Serial.printf("\nSetting up soft-AP fo IoT initialization ... \n");
   WiFi.mode(WIFI_AP);
   boolean result = WiFi.softAP(wifiHostname, STA_WIFI_KEY, 9, false, 1);
+  for (size_t i = 0; !result || i < 3; i++)
+  {
+    delay(500);
+    result = WiFi.softAP(wifiHostname, STA_WIFI_KEY, 9, false, 1);
+  }
   if (result)
   {
     Serial.printf("SoftAP SSID: %s\n", wifiHostname);
