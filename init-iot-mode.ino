@@ -33,6 +33,7 @@ bool softAPInit()
   // ToDo if websocket do not receive any connections within... 1-2 minutes, then go back tu
   // Wifi reconnection loop. Maybe in void loop() ?
   Serial.printf("\nSetting up soft-AP fo IoT initialization ... \n");
+  WiFi.mode(WIFI_AP);
   boolean result = WiFi.softAP(wifiHostname, STA_WIFI_KEY, 9, false, 1);
   if (result)
   {
@@ -58,6 +59,10 @@ bool endInitMode()
   webSocket.close();
   WiFi.softAPdisconnect();
   clearPhase();
+  webSocket.close();
+  // TODO replace following with call to wifiStationConnect() ?
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
@@ -165,7 +170,6 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   if (wifiResult != WL_CONNECTED)
   {
     WiFi.setAutoReconnect(false);
-    WiFi.disconnect(true);
     return;
   }
   //  === WiFi == !
