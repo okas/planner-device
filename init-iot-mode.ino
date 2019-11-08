@@ -135,8 +135,8 @@ void wsAddConfigParams(JsonDocument &doc)
 {
   JsonObject data = doc[1];
   data["iotDeviceId"] = (const char *)iotNodeId;
-  data["ssid"] = WiFi.SSID().c_str();
-  data["psk"] = WiFi.psk().c_str();
+  data["ssid"] = WiFi.SSID();
+  data["psk"] = WiFi.psk();
   data["iotType"] = IOT_TYPE;
   JsonArray outputs = data.createNestedArray("outputs");
   for (OutputDevice_t &device : outDevices)
@@ -306,7 +306,7 @@ const size_t wsCalcStateDetailsSize(size_t detailsCount)
 
 /**
  * Calculates necessary JSON doc size for serialization.
- * NB! Assumes all string members as `const char*`!
+ * NB! Assumes all string members as `const char*`; SSID and PSK capacities are added by their max lenghts.
  * If any of string members are other type then add thos lenght+1 to this result.
  * Source: https://arduinojson.org/v6/faq/why-is-the-output-incomplete/
  */
@@ -320,6 +320,8 @@ const size_t wsGetInitStateJsonCapacity(bool includeCurrentConfig, int detailsCo
   if (includeCurrentConfig)
   { /* Dynamically add IoT Config outputs:[] */
     result += JSON_ARRAY_SIZE(lenOutputs);
+    /* PSK+1 + SSID+1 */
+    result += 65 + 33;
   }
   return result;
 }
