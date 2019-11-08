@@ -56,8 +56,6 @@ void wsInit()
 
 bool endInitMode()
 {
-  webSocket.close();
-  WiFi.softAPdisconnect();
   clearPhase();
   webSocket.close();
   // TODO replace following with call to wifiStationConnect() ?
