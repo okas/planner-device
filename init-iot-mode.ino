@@ -158,11 +158,10 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   wl_status_t wifiResult = WiFi.begin(ssid, psk);
   for (size_t i = 0; i < 10; i++)
   {
-    if (wifiResult == WL_CONNECTED)
+    if (wifiResult == WL_CONNECTED || wifiResult == WL_NO_SSID_AVAIL || wifiResult == WL_CONNECT_FAILED)
     {
       break;
     }
-    /* if/else clauses could check other statuses as well, but so far only dis/connect is returned :-( */
     wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
     delay(1000);
     wifiResult = WiFi.status();
