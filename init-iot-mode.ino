@@ -154,6 +154,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   // TODO analyze if it needs to be here, maybe it is too eraly.
   // changeOutputStates();
   // if (!wifiStationInit(payloadObj["ssid"], payloadObj["psk"]))
+  wsStoreOutputsToRAM(payloadObj["outputs"]);
   const char *ssid = payloadObj["ssid"];
   const char *psk = payloadObj["psk"];
   wl_status_t wifiResult = WiFi.begin(ssid, psk);
@@ -197,8 +198,9 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   //TODO this line can be only called after async response from MQTT API
   // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
   _initState = InitState_t::succeed;
+  _iotState = IOTState_t::initialized;
   // TODO store ID' from API/MQTT as well.
-  wsStoreConfigToEEPROM(payloadObj["outputs"]);
+  wsStoreConfigToEEPROM();
   wsSendState(num, responseSubject);
   return;
   // === SUCCESS->END === !
@@ -210,13 +212,13 @@ void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject
   wsSendStateDetails(num, responseSubject);
 }
 
-void wsStoreConfigToEEPROM(JsonArray outputValues)
+void wsStoreOutputsToRAM(JsonArray values)
 {
   size_t lenUsage = sizeof(OutputDevice_t::usage);
   for (size_t i = 0; i < lenOutputs; i++)
   {
     OutputDevice_t &device = outDevices[i];
-    const char *val = outputValues[i] | "";
+    const char *val = values[i] | "";
     size_t lenVal = strlen(val);
     memset(device.usage, '\0', lenUsage);
     if (lenVal > 0)
@@ -225,11 +227,20 @@ void wsStoreConfigToEEPROM(JsonArray outputValues)
       /* Ensure 0-terminated */
       device.usage[lenUsage - 1] = '\0';
     }
+  }
+}
+
+void wsStoreConfigToEEPROM()
+{
+  size_t lenUsage = sizeof(OutputDevice_t::usage);
+  for (size_t i = 0; i < lenOutputs; i++)
+  {
+    OutputDevice_t &device = outDevices[i];
     EEPROM.put(device.addressUsage, device.usage);
     device.id = i + 1; // TODO mock value!!
     EEPROM.put(device.addressId, device.id);
   }
-  EEPROM.put(_AddressIoTState, _iotState = IOTState_t::initialized);
+  EEPROM.put(_AddressIoTState, _iotState);
   EEPROM.commit();
 }
 
