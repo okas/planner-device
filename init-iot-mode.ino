@@ -151,7 +151,8 @@ void wsAddConfigParams(JsonDocument &doc)
 void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloadObj)
 {
   _initState = InitState_t::working;
-  changeOutputStates();
+  // TODO analyze if it needs to be here, maybe it is too eraly.
+  // changeOutputStates();
   // if (!wifiStationInit(payloadObj["ssid"], payloadObj["psk"]))
   const char *ssid = payloadObj["ssid"];
   const char *psk = payloadObj["psk"];
