@@ -49,6 +49,6 @@ const char *wifiHelpGetStateTxt(int status)
   case WL_DISCONNECTED:
     return "WL_DISCONNECTED";
   default:
-    return "UNKNOWN MQTT STATUS!";
+    return "UNKNOWN WIFI STATUS!";
   }
 }
