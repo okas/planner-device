@@ -204,12 +204,9 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   // === SUCCESS->END === !
 }
 
-void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t result)
+void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t wifiResultStr)
 {
-  char wifiResultStr[sizeof(result) + 1];
-  itoa(result, wifiResultStr, 10);
-  setPhase("wifi", wifiResultStr);
-  Serial.printf(" - - - wifiResultStr: %s \n", wifiResultStr);
+  setPhase("wifi", wifiHelpGetStateTxt(wifiResultStr));
   wsSendStateDetails(num, responseSubject);
 }
 
