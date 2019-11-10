@@ -131,16 +131,16 @@ void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurren
   if (includeCurrentConfig)
   {
     JsonObject data = responseDoc[1];
-  data["iotDeviceId"] = (const char *)iotNodeId;
-  data["ssid"] = WiFi.SSID();
-  data["psk"] = WiFi.psk();
-  data["iotType"] = IOT_TYPE;
-  JsonArray outputs = data.createNestedArray("outputs");
-  for (OutputDevice_t &device : outDevices)
-  {
-    outputs.add((const char *)device.usage);
+    data["iotDeviceId"] = (const char *)iotNodeId;
+    data["ssid"] = WiFi.SSID();
+    data["psk"] = WiFi.psk();
+    data["iotType"] = IOT_TYPE;
+    JsonArray outputs = data.createNestedArray("outputs");
+    for (OutputDevice_t &device : outDevices)
+    {
+      outputs.add((const char *)device.usage);
+    }
   }
-}
   wsSendTxtJsonResponse(num, responseDoc);
 }
 
