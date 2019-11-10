@@ -211,6 +211,12 @@ void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject
   wsSendStateDetails(num, responseSubject);
 }
 
+void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, int mqttState)
+{
+  setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
+  wsSendStateDetails(num, responseSubject);
+}
+
 void wsStoreOutputsToRAM(JsonArray values)
 {
   size_t lenUsage = sizeof(OutputDevice_t::usage);
