@@ -187,19 +187,8 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   if (mqttState != MQTT_CONNECTED)
   {
     _initState = InitState_t::failed;
-    return;
   }
-  // TODO add ID retreival here
   //  === MQTT == !
-  // ! === SUCCESS->END ===
-  //TODO this line can be only called after async response from MQTT API
-  // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
-  _initState = InitState_t::succeed;
-  _iotState = IOTState_t::initialized;
-  // TODO store ID' from API/MQTT as well.
-  wsStoreConfigToEEPROM();
-  wsSendState(num, responseSubject);
-  // === SUCCESS->END === !
 }
 
 void wsStoreOutputsToRAM(JsonArray values)
@@ -218,6 +207,22 @@ void wsStoreOutputsToRAM(JsonArray values)
       device.usage[lenUsage - 1] = '\0';
     }
   }
+}
+
+void wsSetInitValuesSuccessFinalize()
+{
+
+  /* TODO If it wil lbe only called from MQTT messagehandler, then filter out calls
+     so that only if _initState == InitState_t::working (any more) will do something */
+  // ! === SUCCESS->END ===
+  //TODO this line can be only called after async response from MQTT API
+  // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
+  _initState = InitState_t::succeed;
+  _iotState = IOTState_t::initialized; // Refactor on of this file.
+  // TODO store ID' from API/MQTT as well.
+  wsStoreConfigToEEPROM();
+  wsSendState(num, responseSubject);
+  // === SUCCESS->END === !
 }
 
 void wsStoreConfigToEEPROM()
