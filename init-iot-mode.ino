@@ -184,7 +184,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   }
   mqttState = mqttPublishIoTInit();
   wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttState);
-  if (!mqttState)
+  if (mqttState != MQTT_CONNECTED)
   {
     _initState = InitState_t::failed;
     return;
