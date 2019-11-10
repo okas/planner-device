@@ -13,7 +13,7 @@ float bufferToFloat(byte *buffer, unsigned int length)
   return temp.f;
 }
 
-vector<string> strsplit(char *phrase, char *delimiter)
+vector<string> strsplit(const char *phrase, const char *delimiter)
 {
   string s = phrase;
   vector<string> ret;
