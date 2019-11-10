@@ -334,13 +334,22 @@ const size_t wsGetInitStateJsonCapacity(bool includeCurrentConfig, int detailsCo
 
 void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t wifiState)
 {
-  setPhase("wifi", wifiHelpGetStateTxt(wifiState));
-  wsSendStateDetails(num, responseSubject);
+  wsSetInitValuesHandleGenericessaging(num, responseSubject, "wifi", wifiHelpGetStateTxt(wifiState));
 }
 
 void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, int mqttState)
 {
-  setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
+  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttHelpGetStateTxt(mqttState));
+}
+
+void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, const char *desc)
+{
+  wsSetInitValuesHandleGenericessaging(num, responseSubject, "mqtt", desc);
+}
+
+void wsSetInitValuesHandleGenericessaging(uint8_t num, const char *responseSubject, const char *step, const char *desc)
+{
+  setPhase(step, desc);
   wsSendStateDetails(num, responseSubject);
 }
 
