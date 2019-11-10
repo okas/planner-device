@@ -221,7 +221,7 @@ void wsSetInitValuesSuccessFinalize()
   _iotState = IOTState_t::initialized; // Refactor on of this file.
   // TODO store ID' from API/MQTT as well.
   wsStoreConfigToEEPROM();
-  wsSendState(num, responseSubject);
+  // wsSendState(num, responseSubject);
   // === SUCCESS->END === !
 }
 
