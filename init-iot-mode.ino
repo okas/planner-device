@@ -61,8 +61,9 @@ void wsInit()
 
 bool endInitMode()
 {
-  clearPhase();
   webSocket.close();
+  clearTempOutputs();
+  clearPhase();
   // TODO replace following with call to wifiStationConnect() ?
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
@@ -355,6 +356,18 @@ void clearPhase()
 {
   memset(_currentPhase.step, '\0', sizeof(_currentPhase.step));
   memset(_currentPhase.desc, '\0', sizeof(_currentPhase.desc));
+}
+
+void clearTempOutputs()
+{
+  if (_initState == InitState_t::failed || _initState == InitState_t::working)
+  {
+    size_t lenUsage = sizeof(OutputDevice_t::usage);
+    for (OutputDevice_t &device : outDevices)
+    {
+      memset(device.usage, '\0', lenUsage);
+    }
+  }
 }
 
 const char *getPhaseStep()
