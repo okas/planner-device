@@ -207,18 +207,6 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   // === SUCCESS->END === !
 }
 
-void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t wifiState)
-{
-  setPhase("wifi", wifiHelpGetStateTxt(wifiState));
-  wsSendStateDetails(num, responseSubject);
-}
-
-void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, int mqttState)
-{
-  setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
-  wsSendStateDetails(num, responseSubject);
-}
-
 void wsStoreOutputsToRAM(JsonArray values)
 {
   size_t lenUsage = sizeof(OutputDevice_t::usage);
@@ -342,6 +330,18 @@ const size_t wsGetInitStateJsonCapacity(bool includeCurrentConfig, int detailsCo
     result += 65 + 33;
   }
   return result;
+}
+
+void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t wifiState)
+{
+  setPhase("wifi", wifiHelpGetStateTxt(wifiState));
+  wsSendStateDetails(num, responseSubject);
+}
+
+void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, int mqttState)
+{
+  setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
+  wsSendStateDetails(num, responseSubject);
 }
 
 void setPhase(const char *step, const char *desc)
