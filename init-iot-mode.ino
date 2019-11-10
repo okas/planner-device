@@ -181,12 +181,11 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   //  === WiFi == !
   // ! === MQTT ===
   int mqttState = mqttIoTInit();
-  if (!mqttState)
+  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttState);
   {
     _initState = InitState_t::failed;
   }
-  setPhase("mqtt", mqttHelpGetStateTxt(mqttState));
-  wsSendStateDetails(num, responseSubject);
+  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttState);
   if (mqttState != MQTT_CONNECTED)
   {
     return;
