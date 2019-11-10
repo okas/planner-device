@@ -182,15 +182,18 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   // ! === MQTT ===
   int mqttState = mqttIoTInit();
   wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttState);
-  {
-    _initState = InitState_t::failed;
-  }
-  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttState);
   if (mqttState != MQTT_CONNECTED)
   {
+    _initState = InitState_t::failed;
     return;
   }
-  return;
+  mqttState = mqttPublishIoTInit();
+  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttState);
+  if (!mqttState)
+  {
+    _initState = InitState_t::failed;
+    return;
+  }
   // TODO add ID retreival here
   //  === MQTT == !
   // ! === SUCCESS->END ===
@@ -201,7 +204,6 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   // TODO store ID' from API/MQTT as well.
   wsStoreConfigToEEPROM();
   wsSendState(num, responseSubject);
-  return;
   // === SUCCESS->END === !
 }
 
