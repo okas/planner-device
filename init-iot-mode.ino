@@ -55,7 +55,7 @@ bool softAPInit()
 void wsInit()
 {
   Serial.println("Setting up WebSocket server for IoT device initialization ... ");
-  webSocket.onEvent(webSocketEvent);
+  webSocket.onEvent(webSocketEventHandler);
   webSocket.begin();
 }
 
@@ -68,7 +68,7 @@ bool endInitMode()
   WiFi.setAutoReconnect(true);
 }
 
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
+void webSocketEventHandler(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
 {
   switch (type)
   {
