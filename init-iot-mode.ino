@@ -160,21 +160,20 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   wl_status_t wifiResult = WiFi.begin(ssid, psk);
   for (size_t i = 0; i < 10; i++)
   {
+    if (i)
+    {
+      delay(1000);
+      wifiResult = WiFi.status();
+    }
+    wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
     if (wifiResult == WL_CONNECTED || wifiResult == WL_NO_SSID_AVAIL || wifiResult == WL_CONNECT_FAILED)
     {
       break;
     }
-    wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
-    delay(1000);
-    wifiResult = WiFi.status();
   }
   if (wifiResult != WL_CONNECTED)
   {
     _initState = InitState_t::failed;
-  }
-  wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
-  if (wifiResult != WL_CONNECTED)
-  {
     WiFi.setAutoReconnect(false);
     return;
   }
