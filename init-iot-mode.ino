@@ -238,12 +238,9 @@ void wsStoreOutputsToRAM(JsonArray values)
 
 void wsStoreConfigToEEPROM()
 {
-  size_t lenUsage = sizeof(OutputDevice_t::usage);
-  for (size_t i = 0; i < lenOutputs; i++)
+  for (OutputDevice_t &device : outDevices)
   {
-    OutputDevice_t &device = outDevices[i];
     EEPROM.put(device.addressUsage, device.usage);
-    device.id = i + 1; // TODO mock value!!
     EEPROM.put(device.addressId, device.id);
   }
   EEPROM.put(_AddressIoTState, _iotState);
