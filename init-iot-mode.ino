@@ -205,9 +205,9 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   // === SUCCESS->END === !
 }
 
-void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t wifiResultStr)
+void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t wifiState)
 {
-  setPhase("wifi", wifiHelpGetStateTxt(wifiResultStr));
+  setPhase("wifi", wifiHelpGetStateTxt(wifiState));
   wsSendStateDetails(num, responseSubject);
 }
 
