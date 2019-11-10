@@ -130,14 +130,7 @@ void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurren
   wsAddStateDetails(responseDoc);
   if (includeCurrentConfig)
   {
-    wsAddConfigParams(responseDoc);
-  }
-  wsSendTxtJsonResponse(num, responseDoc);
-}
-
-void wsAddConfigParams(JsonDocument &doc)
-{
-  JsonObject data = doc[1];
+    JsonObject data = responseDoc[1];
   data["iotDeviceId"] = (const char *)iotNodeId;
   data["ssid"] = WiFi.SSID();
   data["psk"] = WiFi.psk();
@@ -147,6 +140,8 @@ void wsAddConfigParams(JsonDocument &doc)
   {
     outputs.add((const char *)device.usage);
   }
+}
+  wsSendTxtJsonResponse(num, responseDoc);
 }
 
 void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloadObj)
