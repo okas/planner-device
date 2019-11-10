@@ -182,11 +182,16 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
     _initState = InitState_t::failed;
     return;
   }
-  mqttState = mqttPublishIoTInit();
-  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttState);
-  if (mqttState != MQTT_CONNECTED)
+  bool pubResult = mqttPublishIoTInit(mqttState);
+  if (!pubResult)
   {
     _initState = InitState_t::failed;
+    if (mqttState != MQTT_CONNECTED)
+    {
+      wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttState);
+    }
+    wsSetInitValuesHandleMQTTMessaging(num, responseSubject, "__PUBLISH_FAILED");
+    return;
   }
   //  === MQTT == !
 }

@@ -69,7 +69,7 @@ bool mqttSubscriberIoTInit()
   return mqttClient.subscribe(topic);
 }
 
-bool mqttPublishIoTInit()
+bool mqttPublishIoTInit(int &outState)
 {
   char topic[80];
   mqttGetSubscrForOther(topic, nodeName, iotNodeId, cmndInit);
@@ -79,6 +79,7 @@ bool mqttPublishIoTInit()
   serializeJson(payloadDoc, buffer, size);
   Serial.printf("- - publishing Init topic : \"%s\"\n", topic);
   Serial.printf("- - payload is : \"%s\"\n", buffer);
+  outState = mqttClient.state();
   return mqttClient.publish(topic, buffer);
 }
 
