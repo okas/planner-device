@@ -85,7 +85,9 @@ bool mqttPublishIoTInit(int &outState)
 
 JsonDocument mqttGenerateInitPayload()
 {
-  const size_t docSize = JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(lenOutputs) + (lenOutputs * JSON_OBJECT_SIZE(2));
+  size_t docSize = JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(lenOutputs) + (lenOutputs * JSON_OBJECT_SIZE(2));
+  /* For copied bytes */
+  docSize += 10;
   DynamicJsonDocument payloadDoc(docSize);
   payloadDoc["iottype"] = IOT_TYPE;
   auto outputs = payloadDoc.createNestedArray("outputs");
@@ -93,7 +95,7 @@ JsonDocument mqttGenerateInitPayload()
   {
     auto out = outputs.createNestedObject();
     out["id"] = device.id;
-    out["usage"] = device.usage;
+    out["usage"] = (const char *)device.usage;
   }
   return payloadDoc;
 }
@@ -205,13 +207,16 @@ void printBuffer(const char *msg, byte *buffer, size_t length)
   Serial.println(">");
 }
 
-void commandMessageHandler(char *topic, byte *payload, size_t length)
+void commandMessageHandler(const char *topic, byte *payload, size_t length)
 {
+  // TODO fix all topic handling, its structure has changed!
+  // Todo take care of order of if-else ladder!
   const vector<string> topicTokens = strsplit(topic, "/");
   if (topicTokens[1] == "api")
   {
     // ToDo: api present...
   }
+  /* saartk/device/iotnode/FF:FF:FF:FF:FF:FF/cmnd/command/+ */
   else if (topicTokens[6] == cmndState)
   {
     int8_t idIdx = findOutputIndex(topicTokens);
@@ -221,6 +226,11 @@ void commandMessageHandler(char *topic, byte *payload, size_t length)
   {
     cmndSetStateHandler(topicTokens, payload, length);
   }
+  /* saartk/device/iotnode/FF:FF:FF:FF:FF:FF/init-r */
+  // else if (topicTokens[4] == cmndSetState)
+  // {
+  //   cmndSetStateHandler(topicTokens, payload, length);
+  // }
   else
   {
     Serial.printf("- - Bad topic, unknown command! End handler.\n");

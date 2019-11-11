@@ -151,6 +151,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   // changeOutputStates();
   // if (!wifiStationInit(payloadObj["ssid"], payloadObj["psk"]))
   wsStoreOutputsToRAM(payloadObj["outputs"]);
+  // ! === WiFi ===
   const char *ssid = payloadObj["ssid"];
   const char *psk = payloadObj["psk"];
   wl_status_t wifiResult = WiFi.begin(ssid, psk);
@@ -194,6 +195,9 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
     return;
   }
   //  === MQTT == !
+  // ! === IoTNode ===
+  wsSetInitValuesHandleGenericessaging(num, responseSubject, "iotnode", "WAITING_IDS_FROM_API");
+  //  === IoTNode == !
 }
 
 void wsStoreOutputsToRAM(JsonArray values)
