@@ -12,14 +12,19 @@ const char *cmndSetState = "set-state";
 const char *cmndInit = "init";
 const char *respInit = "init-r";
 
-bool mqttConnect(uint8_t limit = 0);
+lwmqtt_return_code_t mqttConnect(uint8_t limit = 0);
 
 /* --- MQTT */
 
-int mqttIoTInit()
+int8_t mqttIoTInit()
 {
+  int8_t err;
   mqttInit();
-  return (mqttConnect(2) && mqttSubscriberIoTInit(), mqttClient.state());
+  if (err = mqttConnect(2))
+  {
+    return err;
+  }
+  return mqttSubscriberIoTInit();
 }
 
 void mqttNormalInit()
@@ -32,45 +37,53 @@ void mqttNormalInit()
 
 void mqttInit()
 {
-  mqttClient.setClient(espClient)
-      .setServer(MQTT_SERVER, MQTT_PORT)
-      .setCallback(logMessage)
-      .setCallback(commandMessageHandler);
-}
-
-bool mqttConnect(uint8_t limit)
-{
+  mqttClient.begin(MQTT_SERVER, MQTT_PORT, espClient);
   char lastWillTopic[80];
   mqttGetSubscrForOther(lastWillTopic, nodeName, iotNodeId, "lost");
   Serial.printf("- - lastWillTopic is : \"%s\"\n", lastWillTopic);
-  for (size_t i = 0; !mqttClient.connected() && i < limit; i = limit ? i + 1 : 0)
-  {
-    Serial.println(" Connecting to MQTT...");
-    if (mqttClient.connect(iotNodeId, mqttUser, mqttPassword, lastWillTopic, 0, false, ""))
-    {
-      Serial.println(" MQTT connected!");
-      return true;
-    }
-    else
-    {
-      Serial.printf(R"( failed with state "%d")", mqttClient.state());
-      Serial.println();
-      delay(2000);
-    }
-  }
-  return false;
+  mqttClient.setWill(lastWillTopic);
+  mqttClient.onMessageAdvanced(commandMessageHandler); // TODO check signatures
 }
 
-bool mqttSubscriberIoTInit()
+lwmqtt_return_code_t mqttConnect(uint8_t limit)
+{
+  Serial.println(" Connecting to MQTT...");
+  lwmqtt_return_code_t result;
+  for (size_t i = 0; i < limit; i = limit ? i + 1 : -1)
+  {
+    if (i)
+    {
+      delay(2000);
+    }
+    if (mqttClient.connect(iotNodeId, mqttUser, mqttPassword))
+    {
+      Serial.println(" MQTT connected!");
+      return (lwmqtt_return_code_t)0;
+    }
+    result = mqttClient.returnCode();
+    /* TODO
+     * Filter out certain erros that do not deserv reattempts */
+    Serial.printf(R"( MQTT connection failed with error "%d")", result);
+    Serial.println();
+  }
+  return result;
+}
+
+lwmqtt_err_t mqttSubscriberIoTInit()
 {
   char topic[80];
   mqttGetSubscrForOther(topic, nodeName, iotNodeId, respInit);
   Serial.printf("- -subscribing to Init topic is : \"%s\"\n", topic);
-  return mqttClient.subscribe(topic);
+  if (mqttClient.subscribe(topic))
+  {
+    return (lwmqtt_err_t)0;
+  }
+  return mqttClient.lastError();
 }
 
-bool mqttPublishIoTInit(int &outState)
+bool mqttPublishIoTInit(int8_t &outErr)
 {
+  bool ret;
   char topic[80];
   mqttGetSubscrForOther(topic, nodeName, iotNodeId, cmndInit);
   JsonDocument payloadDoc = mqttGenerateInitPayload();
@@ -79,8 +92,9 @@ bool mqttPublishIoTInit(int &outState)
   serializeJson(payloadDoc, buffer, size);
   Serial.printf("- - publishing Init topic : \"%s\"\n", topic);
   Serial.printf("- - payload is : \"%s\"\n", buffer);
-  outState = mqttClient.state();
-  return mqttClient.publish(topic, buffer);
+  ret = mqttClient.publish(topic, buffer);
+  outErr = ret ? 0 : mqttClient.lastError();
+  return ret;
 }
 
 JsonDocument mqttGenerateInitPayload()
@@ -184,7 +198,7 @@ void generateSubscriptionBase(char *buffer, const char *type, const char *id)
   strcat(buffer, id);
 }
 
-void logMessage(char *topic, byte *payload, size_t length)
+void logMessage(char *topic, char *payload, int length)
 {
   Serial.println(">>>>> Message:");
   Serial.printf(" topic: \"%s\"\n", topic);
@@ -193,7 +207,7 @@ void logMessage(char *topic, byte *payload, size_t length)
   Serial.println("<<<<<");
 }
 
-void printBuffer(const char *msg, byte *buffer, size_t length)
+void printBuffer(const char *msg, char *buffer, int length)
 {
   Serial.printf("%s<", msg);
   for (unsigned int i = 0; i < length; i++)
@@ -207,8 +221,9 @@ void printBuffer(const char *msg, byte *buffer, size_t length)
   Serial.println(">");
 }
 
-void commandMessageHandler(const char *topic, byte *payload, size_t length)
+void commandMessageHandler(MQTTClient *client, char *topic, char *payload, int length)
 {
+  logMessage(topic, payload, length);
   // TODO fix all topic handling, its structure has changed!
   // Todo take care of order of if-else ladder!
   const vector<string> topicTokens = strsplit(topic, "/");
@@ -238,7 +253,7 @@ void commandMessageHandler(const char *topic, byte *payload, size_t length)
   }
 }
 
-void cmndSetStateHandler(const vector<string> topicTokens, byte *buffer, size_t length)
+void cmndSetStateHandler(const vector<string> topicTokens, char *buffer, size_t length)
 {
   int8_t idIdx = findOutputIndex(topicTokens);
   if (idIdx < -1)
@@ -295,7 +310,7 @@ void publishResponseDeviceState(int8_t outputIdx, const vector<string> topicToke
   OutputDevice_t &device = outDevices[outputIdx];
   // ToDo handle JSON responses as well
   char *responseTopic = createResponseTopic(topicTokens);
-  byte payload[sizeof(device.state)];
+  char payload[sizeof(device.state)];
   *(float *)(payload) = device.state; // convert float to bytes
   Serial.printf("- - responseTopic: \"%s\".\n", responseTopic);
   printBuffer("- - responsePayload bytes: ", payload, sizeof(payload));
@@ -316,30 +331,61 @@ char *createResponseTopic(const vector<string> topicTokens)
   return result;
 }
 
-const char *mqttHelpGetStateTxt(int status)
+const char *mqttHelpGetStateTxt(lwmqtt_return_code_t status)
 {
   switch (status)
   {
-  case MQTT_CONNECTION_TIMEOUT:
-    return "MQTT_CONNECTION_TIMEOUT";
-  case MQTT_CONNECTION_LOST:
-    return "MQTT_CONNECTION_LOST";
-  case MQTT_CONNECT_FAILED:
-    return "MQTT_CONNECT_FAILED";
-  case MQTT_DISCONNECTED:
-    return "MQTT_DISCONNECTED";
-  case MQTT_CONNECTED:
-    return "MQTT_CONNECTED";
-  case MQTT_CONNECT_BAD_PROTOCOL:
-    return "MQTT_CONNECT_BAD_PROTOCOL";
-  case MQTT_CONNECT_BAD_CLIENT_ID:
-    return "MQTT_CONNECT_BAD_CLIENT_ID";
-  case MQTT_CONNECT_UNAVAILABLE:
-    return "MQTT_CONNECT_UNAVAILABLE";
-  case MQTT_CONNECT_BAD_CREDENTIALS:
-    return "MQTT_CONNECT_BAD_CREDENTIALS";
-  case MQTT_CONNECT_UNAUTHORIZED:
-    return "MQTT_CONNECT_UNAUTHORIZED";
+  case LWMQTT_CONNECTION_ACCEPTED:
+    return "LWMQTT_CONNECTION_ACCEPTED";
+  case LWMQTT_UNACCEPTABLE_PROTOCOL:
+    return "LWMQTT_UNACCEPTABLE_PROTOCOL";
+  case LWMQTT_IDENTIFIER_REJECTED:
+    return "LWMQTT_IDENTIFIER_REJECTED";
+  case LWMQTT_SERVER_UNAVAILABLE:
+    return "LWMQTT_SERVER_UNAVAILABLE";
+  case LWMQTT_BAD_USERNAME_OR_PASSWORD:
+    return "LWMQTT_BAD_USERNAME_OR_PASSWORD";
+  case LWMQTT_NOT_AUTHORIZED:
+    return "LWMQTT_NOT_AUTHORIZED";
+  case LWMQTT_UNKNOWN_RETURN_CODE:
+    return "LWMQTT_UNKNOWN_RETURN_CODE";
+  default:
+    return "UNKNOWN MQTT STATUS!";
+  }
+}
+
+const char *mqttHelpGetStateTxt(lwmqtt_err_t status)
+{
+  switch (status)
+  {
+  case LWMQTT_SUCCESS:
+    return "LWMQTT_SUCCESS";
+  case LWMQTT_BUFFER_TOO_SHORT:
+    return "LWMQTT_BUFFER_TOO_SHORT";
+  case LWMQTT_VARNUM_OVERFLOW:
+    return "LWMQTT_VARNUM_OVERFLOW";
+  case LWMQTT_NETWORK_FAILED_CONNECT:
+    return "LWMQTT_NETWORK_FAILED_CONNECT";
+  case LWMQTT_NETWORK_TIMEOUT:
+    return "LWMQTT_NETWORK_TIMEOUT";
+  case LWMQTT_NETWORK_FAILED_READ:
+    return "LWMQTT_NETWORK_FAILED_READ";
+  case LWMQTT_NETWORK_FAILED_WRITE:
+    return "LWMQTT_NETWORK_FAILED_WRITE";
+  case LWMQTT_REMAINING_LENGTH_OVERFLOW:
+    return "LWMQTT_REMAINING_LENGTH_OVERFLOW";
+  case LWMQTT_REMAINING_LENGTH_MISMATCH:
+    return "LWMQTT_REMAINING_LENGTH_MISMATCH";
+  case LWMQTT_MISSING_OR_WRONG_PACKET:
+    return "LWMQTT_MISSING_OR_WRONG_PACKET";
+  case LWMQTT_CONNECTION_DENIED:
+    return "LWMQTT_CONNECTION_DENIED";
+  case LWMQTT_FAILED_SUBSCRIPTION:
+    return "LWMQTT_FAILED_SUBSCRIPTION";
+  case LWMQTT_SUBACK_ARRAY_OVERFLOW:
+    return "LWMQTT_SUBACK_ARRAY_OVERFLOW";
+  case LWMQTT_PONG_TIMEOUT:
+    return "LWMQTT_PONG_TIMEOUT";
   default:
     return "UNKNOWN MQTT STATUS!";
   }

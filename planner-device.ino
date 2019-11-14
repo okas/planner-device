@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <EEPROM.h>
 #include <ESP8266WiFi.h>
-#include <PubSubClient.h>
+#include <MQTT.h>
 #include <WebSocketsServer.h>
 #include <Ticker.h>
 #include <ArduinoJson.h>
@@ -56,7 +56,7 @@ const size_t lenOutputs = sizeof(outDevices) / sizeof(OutputDevice_t);
 char wifiHostname[11];
 
 WiFiClient espClient;
-PubSubClient mqttClient;
+MQTTClient mqttClient(512);
 WebSocketsServer webSocket(81);
 
 void setup()
@@ -97,10 +97,7 @@ bool gotoIotInitMode()
 {
   Serial.println(" - - Going to Initialization Mode.");
   startLEDBlinker();
-  if (mqttClient.connected())
-  {
-    mqttClient.disconnect();
-  }
+  mqttClient.disconnect();
   if (_iotState == IOTState_t::initialized || _iotState == IOTState_t::operating)
   {
     initMode_ticker.once(60, leaveIotInitMode);
@@ -132,15 +129,21 @@ void leaveIotInitMode()
 void loop()
 {
   iot_start_init_loop();
-  int mqttState = mqttClient.state();
-  switch (mqttState)
-  {
-  case MQTT_CONNECTED:
-  case MQTT_DISCONNECTED:
-    break;
-  default:
-    mqttNormalInit();
-  }
+  /* TODO
+  Analyze correct logic.
+  It should differ between Normal and Init Modes! */
+  // int mqttState = mqttClient.state();
+  // switch (mqttState)
+  // {
+  // case MQTT_CONNECTED:
+  // case MQTT_DISCONNECTED:
+  //   break;
+  // default:
+  //   mqttNormalInit();
+  // }
   mqttClient.loop();
+  delay(10); // <- fixes some issues with WiFi stability
+  /* TODO
+  Add Conditional loop for nly Init Mode time */
   webSocket.loop();
 }

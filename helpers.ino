@@ -3,7 +3,7 @@ union UnionFloatByte {
   byte b[sizeof f];
 };
 
-float bufferToFloat(byte *buffer, unsigned int length)
+float bufferToFloat(char *buffer, unsigned int length)
 {
   UnionFloatByte temp;
   for (size_t i = 0; i < length; i++)

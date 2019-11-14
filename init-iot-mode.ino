@@ -176,9 +176,9 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   }
   //  === WiFi == !
   // ! === MQTT ===
-  int mqttState = mqttIoTInit();
-  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttState);
-  if (mqttState != MQTT_CONNECTED)
+  int8_t mqttState = mqttIoTInit();
+  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, (lwmqtt_return_code_t)mqttState);
+  if (mqttState != 0)
   {
     _initState = InitState_t::failed;
     return;
@@ -187,9 +187,9 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   if (!pubResult)
   {
     _initState = InitState_t::failed;
-    if (mqttState != MQTT_CONNECTED)
+    if (mqttState != 0)
     {
-      wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttState);
+      wsSetInitValuesHandleMQTTMessaging(num, responseSubject, (lwmqtt_err_t)mqttState);
     }
     wsSetInitValuesHandleMQTTMessaging(num, responseSubject, "__PUBLISH_FAILED");
     return;
@@ -346,7 +346,12 @@ void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject
   wsSetInitValuesHandleGenericessaging(num, responseSubject, "wifi", wifiHelpGetStateTxt(wifiState));
 }
 
-void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, int mqttState)
+void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, lwmqtt_return_code_t mqttState)
+{
+  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttHelpGetStateTxt(mqttState));
+}
+
+void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, lwmqtt_err_t mqttState)
 {
   wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttHelpGetStateTxt(mqttState));
 }
