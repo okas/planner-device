@@ -42,7 +42,7 @@ void mqttInit()
   mqttGetSubscrForOther(lastWillTopic, nodeName, iotNodeId, "lost");
   Serial.printf("- - lastWillTopic is : \"%s\"\n", lastWillTopic);
   mqttClient.setWill(lastWillTopic);
-  mqttClient.onMessageAdvanced(commandMessageHandler); // TODO check signatures
+  mqttClient.onMessageAdvanced(mqttMessageHandler); // TODO check signatures
 }
 
 lwmqtt_return_code_t mqttConnect(uint8_t limit)
@@ -221,7 +221,7 @@ void printBuffer(const char *msg, char *buffer, int length)
   Serial.println(">");
 }
 
-void commandMessageHandler(MQTTClient *client, char *topic, char *payload, int length)
+void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int length)
 {
   logMessage(topic, payload, length);
   // TODO fix all topic handling, its structure has changed!
