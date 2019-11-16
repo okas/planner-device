@@ -55,12 +55,13 @@ lwmqtt_return_code_t mqttConnect(uint8_t limit)
     {
       delay(2000);
     }
-    if (mqttClient.connect(iotNodeId, mqttUser, mqttPassword))
+    mqttClient.connect(iotNodeId, mqttUser, mqttPassword);
+    result = mqttClient.returnCode();
+    if (result == LWMQTT_CONNECTION_ACCEPTED)
     {
       Serial.println(" MQTT connected!");
-      return (lwmqtt_return_code_t)0;
+      break;
     }
-    result = mqttClient.returnCode();
     /* TODO
      * Filter out certain erros that do not deserv reattempts */
     Serial.printf(R"( MQTT connection failed with error "%d")", result);
