@@ -75,10 +75,7 @@ lwmqtt_err_t mqttSubscriberIoTInit()
   char topic[80];
   mqttGetSubscrForOther(topic, nodeName, iotNodeId, respInit);
   Serial.printf("- -subscribing to Init topic is : \"%s\"\n", topic);
-  if (mqttClient.subscribe(topic))
-  {
-    return (lwmqtt_err_t)0;
-  }
+  mqttClient.subscribe(topic);
   return mqttClient.lastError();
 }
 
