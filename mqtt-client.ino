@@ -64,7 +64,7 @@ lwmqtt_return_code_t mqttConnect(uint8_t limit)
     }
     /* TODO
      * Filter out certain erros that do not deserv reattempts */
-    Serial.printf(R"( MQTT connection failed with error "%d")", result);
+    Serial.printf(R"( MQTT connection failed with error "%s")", mqttHelpGetStateTxt(result));
     Serial.println();
   }
   return result;
