@@ -154,25 +154,33 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   // ! === WiFi ===
   const char *ssid = payloadObj["ssid"];
   const char *psk = payloadObj["psk"];
-  wl_status_t wifiResult = WiFi.begin(ssid, psk);
-  for (size_t i = 0; i < 10; i++)
+  wl_status_t wifiResult;
+  if (WiFi.SSID() == ssid && WiFi.status() == WL_CONNECTED)
   {
-    if (i)
-    {
-      delay(1000);
-      wifiResult = WiFi.status();
-    }
     wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
-    if (wifiResult == WL_CONNECTED || wifiResult == WL_NO_SSID_AVAIL || wifiResult == WL_CONNECT_FAILED)
-    {
-      break;
-    }
   }
-  if (wifiResult != WL_CONNECTED)
+  else
   {
-    _initState = InitState_t::failed;
-    WiFi.setAutoReconnect(false);
-    return;
+    wifiResult = WiFi.begin(ssid, psk);
+    for (size_t i = 0; i < 10; i++)
+    {
+      if (i)
+      {
+        delay(1000);
+        wifiResult = WiFi.status();
+      }
+      wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
+      if (wifiResult == WL_CONNECTED || wifiResult == WL_NO_SSID_AVAIL || wifiResult == WL_CONNECT_FAILED)
+      {
+        break;
+      }
+    }
+    if (wifiResult != WL_CONNECTED)
+    {
+      _initState = InitState_t::failed;
+      WiFi.setAutoReconnect(false);
+      return;
+    }
   }
   //  === WiFi == !
   // ! === MQTT ===
