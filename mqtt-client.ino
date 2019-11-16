@@ -205,12 +205,12 @@ void logMessage(char *topic, char *payload, int length)
 {
   Serial.println(">>>>> Message:");
   Serial.printf(" topic: \"%s\"\n", topic);
-  Serial.printf(" length, payload: %d\n", length);
-  printBuffer(" payload bytes: ", payload, length);
+  Serial.printf(" length of payload: %d\n", length);
+  Serial.printf(" payload: %s\n", payload);
   Serial.println("<<<<<");
 }
 
-void printBuffer(const char *msg, char *buffer, int length)
+void printBuffer(const char *msg, byte *buffer, int length)
 {
   Serial.printf("%s<", msg);
   for (unsigned int i = 0; i < length; i++)
