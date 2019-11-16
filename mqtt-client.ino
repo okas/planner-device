@@ -18,8 +18,13 @@ lwmqtt_return_code_t mqttConnect(uint8_t limit = 0);
 
 int8_t mqttIoTInit()
 {
-  int8_t err;
+  /* MQTT is already in Init Mode configuration. */
+  if (_iotState == IOTState_t::initMode && mqttClient.connected())
+  {
+    return 0;
+  }
   mqttInit();
+  int8_t err;
   if (err = mqttConnect(2))
   {
     return err;
