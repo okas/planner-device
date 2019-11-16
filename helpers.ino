@@ -29,6 +29,7 @@ vector<string> strsplit(const char *phrase, const char *delimiter)
     ret.emplace_back(token);
     start += len + strlen(delimiter);
   } while (end != string::npos);
+  ret.shrink_to_fit();
   return ret;
 }
 

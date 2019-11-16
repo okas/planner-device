@@ -227,18 +227,18 @@ void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int leng
   // TODO fix all topic handling, its structure has changed!
   // Todo take care of order of if-else ladder!
   const vector<string> topicTokens = strsplit(topic, "/");
-  if (topicTokens[1] == "api")
+  const size_t len = topicTokens.size();
+  if (len > 1 && topicTokens[1] == "api")
   {
     // ToDo: api present...
   }
-  /* saartk/device/iotnode/FF:FF:FF:FF:FF:FF/cmnd/command/+ */
-  else if (topicTokens[6] == cmndState)
-  {
+  else if (len > 6 && topicTokens[6] == cmndState)
+  { /* saartk/device/iotnode/FFFFFFFFFFFF/cmnd/command/+ */
     int8_t idIdx = findOutputIndex(topicTokens);
     publishResponseDeviceState(idIdx, topicTokens);
   }
-  else if (topicTokens[6] == cmndSetState)
-  {
+  else if (len > 6 && topicTokens[6] == cmndSetState)
+  { /* saartk/device/iotnode/FFFFFFFFFFFF/cmnd/command/+ */
     cmndSetStateHandler(topicTokens, payload, length);
   }
   /* saartk/device/iotnode/FF:FF:FF:FF:FF:FF/init-r */
