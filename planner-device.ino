@@ -45,7 +45,9 @@ enum InitState_t : byte
   working = 4
 };
 
+unsigned int _AddressEEPROMInitState;
 unsigned int _AddressIoTState;
+uint8_t _isEEPROMInit;
 IOTState_t _iotState;
 InitState_t _initState;
 Ticker initMode_ticker;
