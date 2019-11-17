@@ -10,6 +10,8 @@
 #include <MQTT.h>
 #include <WebSocketsServer.h>
 #include <Ticker.h>
+/* NB! ArduinoJson Assistant do not use this! */
+#define ARDUINOJSON_USE_LONG_LONG 1
 #include <ArduinoJson.h>
 
 using namespace std;
