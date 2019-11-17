@@ -102,19 +102,26 @@ bool mqttPublishIoTInit(int8_t &outErr)
 
 JsonDocument mqttGenerateInitPayload()
 {
-  size_t docSize = JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(lenOutputs) + (lenOutputs * JSON_OBJECT_SIZE(2));
-  /* For copied bytes */
-  docSize += 10;
-  DynamicJsonDocument payloadDoc(docSize);
+  DynamicJsonDocument payloadDoc(mqttCalcInitPayloadSize());
   payloadDoc["iottype"] = IOT_TYPE;
-  auto outputs = payloadDoc.createNestedArray("outputs");
+  JsonArray outputs = payloadDoc.createNestedArray("outputs");
   for (OutputDevice_t &device : outDevices)
   {
-    auto out = outputs.createNestedObject();
+    JsonObject out = outputs.createNestedObject();
     out["id"] = device.id;
     out["usage"] = (const char *)device.usage;
   }
   return payloadDoc;
+}
+
+const size_t mqttCalcInitPayloadSize()
+{
+  size_t result = JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(lenOutputs) + (lenOutputs * JSON_OBJECT_SIZE(2));
+  /* For copied bytes:
+   * outputDevice.id: sizeof();
+   * outputDevice.usage: room for `\0`. */
+  result += lenOutputs * sizeof(OutputDevice_t::id) + lenOutputs;
+  return result;
 }
 
 void mqttSubscriberNormal()
