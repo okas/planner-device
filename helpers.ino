@@ -70,6 +70,13 @@ char *getWiFiMACHex()
   return result;
 }
 
+const size_t wsCalcDeserializeSizeBaseOrDouble(const size_t dataLength, const size_t baseLen)
+{
+  const size_t doubleDataLen = dataLength * 2;
+  /* Ensure that even quite empty JSON can be deserialized, using serialization minimum suitable value. */
+  return (doubleDataLen < baseLen ? baseLen : doubleDataLen) + 1;
+}
+
 const char *wifiHelpGetStateTxt(int status)
 {
   switch (status)
