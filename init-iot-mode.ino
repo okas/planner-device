@@ -103,8 +103,7 @@ void webSocketEventHandler(uint8_t num, WStype_t type, uint8_t *payload, size_t 
 
 void wsTXTMessageHandler(uint8_t num, char *payload, size_t lenght)
 {
-  const size_t capacity = 2 * JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(3) + 40;
-  StaticJsonDocument<capacity> payloadDoc;
+  DynamicJsonDocument payloadDoc(wsCalcIncomingJsonSize(lenght));
   deserializeJson(payloadDoc, payload, lenght);
   const char *subject = payloadDoc[0];
   if (strcmp(subject, "get-initState") == 0)
@@ -119,6 +118,12 @@ void wsTXTMessageHandler(uint8_t num, char *payload, size_t lenght)
   {
     wsGetInitState(num, "get-currentConfig-R", true);
   }
+}
+
+const size_t wsCalcIncomingJsonSize(size_t dataLength)
+{
+  const size_t baseSize = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_ARRAY_SIZE(lenOutputs);
+  return wsCalcDeserializeSizeBaseOrDouble(dataLength, baseSize);
 }
 
 void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurrentConfig)
