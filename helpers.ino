@@ -77,6 +77,12 @@ const size_t wsCalcDeserializeSizeBaseOrDouble(const size_t dataLength, const si
   return (doubleDataLen < baseLen ? baseLen : doubleDataLen) + 1;
 }
 
+bool eepromIoTStateStore(IOTState_t state)
+{
+  EEPROM.put(_AddressIoTState, state);
+  return EEPROM.commit();
+}
+
 const char *wifiHelpGetStateTxt(int status)
 {
   switch (status)

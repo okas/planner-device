@@ -109,7 +109,7 @@ bool gotoIotInitMode()
   bool ret = startInitMode();
   if (ret)
   {
-    _iotState = IOTState_t::initMode;
+    eepromIoTStateStore(_iotState = IOTState_t::initMode);
   }
   else
   {
@@ -125,6 +125,7 @@ void leaveIotInitMode()
   initMode_ticker.detach();
   _iotState = _initState == InitState_t::succeed ? IOTState_t::initialized : IOTState_t::started;
   _initState = InitState_t::stopped;
+  eepromIoTStateStore(_iotState);
   endInitMode();
   stopLEDBlinker(true);
   // TODO restart ESP here in case of _iotState == IOTState_t::started?

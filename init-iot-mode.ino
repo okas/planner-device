@@ -289,9 +289,9 @@ void wsStoreConfigToEEPROM()
     EEPROM.put(device.addressId, device.id);
   }
   /* Intentionally saved separately, Init Mode End method will set this value in RAM.
-   * This way probram overall stat still reflects that InitMode is on. */
-  EEPROM.put(_AddressIoTState, IOTState_t::initialized);
-  EEPROM.commit();
+   * This way program's overall stat still reflects that InitMode is on.
+   * This state will be written in leaveIotInitMode() as well to reflect very final state!*/
+  eepromIoTStateStore(IOTState_t::initialized);
 }
 
 bool wsBroadcastInitStateDetails(const char *responseSubject)
