@@ -112,7 +112,7 @@ void wsTXTMessageHandler(uint8_t num, char *payload, size_t lenght)
   }
   else if (strcmp(subject, "set-initValues") == 0)
   {
-    wsSetInitValues(num, "set-initValues-R", payloadDoc[1]);
+    wsSetInitValues("set-initValues-R", payloadDoc[1]);
   }
   else if (strcmp(subject, "get-currentConfig") == 0)
   {
@@ -149,7 +149,7 @@ void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurren
   wsSendTxtJsonResponse(num, responseDoc);
 }
 
-void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloadObj)
+void wsSetInitValues(const char *responseSubject, JsonObject payloadObj)
 {
   _initState = InitState_t::working;
   // TODO analyze if it needs to be here, maybe it is too eraly.
@@ -162,7 +162,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   wl_status_t wifiResult;
   if (WiFi.SSID() == ssid && WiFi.status() == WL_CONNECTED)
   {
-    wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
+    wsSetInitValuesHandleWifiMessaging(responseSubject, wifiResult);
   }
   else
   {
@@ -174,7 +174,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
         delay(1000);
         wifiResult = WiFi.status();
       }
-      wsSetInitValuesHandleWifiMessaging(num, responseSubject, wifiResult);
+      wsSetInitValuesHandleWifiMessaging(responseSubject, wifiResult);
       if (wifiResult == WL_CONNECTED || wifiResult == WL_NO_SSID_AVAIL || wifiResult == WL_CONNECT_FAILED)
       {
         break;
@@ -190,7 +190,7 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
   //  === WiFi == !
   // ! === MQTT ===
   int8_t mqttState = mqttIoTInit();
-  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, (lwmqtt_return_code_t)mqttState);
+  wsSetInitValuesHandleMQTTMessaging(responseSubject, (lwmqtt_return_code_t)mqttState);
   if (mqttState != 0)
   {
     _initState = InitState_t::failed;
@@ -202,9 +202,9 @@ void wsSetInitValues(uint8_t num, const char *responseSubject, JsonObject payloa
     _initState = InitState_t::failed;
     if (mqttState != 0)
     {
-      wsSetInitValuesHandleMQTTMessaging(num, responseSubject, (lwmqtt_err_t)mqttState);
+      wsSetInitValuesHandleMQTTMessaging(responseSubject, (lwmqtt_err_t)mqttState);
     }
-    wsSetInitValuesHandleMQTTMessaging(num, responseSubject, "__PUBLISH_FAILED");
+    wsSetInitValuesHandleMQTTMessaging(responseSubject, "__PUBLISH_FAILED");
     return;
   }
   //  === MQTT == !
@@ -258,26 +258,18 @@ void wsStoreConfigToEEPROM()
   EEPROM.commit();
 }
 
-bool wsSendState(uint8_t num, const char *responseSubject)
+bool wsBroadcastInitStateDetails(const char *responseSubject)
 {
-  /* Size w/ only `state` member. */
-  const size_t capacity = wsCalcResponseBaseSize(1);
-  JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject, false);
-  return wsSendTxtJsonResponse(num, responseDoc);
+  return wsBroadcastInitStateDetails(responseSubject, getPhaseStep(), getPhaseDesc());
 }
 
-bool wsSendStateDetails(uint8_t num, const char *responseSubject)
-{
-  return wsSendStateDetails(num, responseSubject, getPhaseStep(), getPhaseDesc());
-}
-
-bool wsSendStateDetails(uint8_t num, const char *responseSubject, const char *step, const char *descr)
+bool wsBroadcastInitStateDetails(const char *responseSubject, const char *step, const char *descr)
 {
   const size_t detailsCount = 1; // TODO Subject to change if array of messages need to be sent.
   const size_t capacity = wsCalcResponseBaseSize() + wsCalcStateDetailsSize(detailsCount);
   JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
   wsAddStateDetails(responseDoc, step, descr);
-  return wsSendTxtJsonResponse(num, responseDoc);
+  return wsBroadcastTxtJsonResponse(responseDoc);
 }
 
 JsonDocument wsCreateResponse(const size_t docSize, const char *responseSubject, bool details)
@@ -308,10 +300,18 @@ void wsAddStateDetails(JsonDocument &doc, const char *step, const char *descr)
 
 bool wsSendTxtJsonResponse(uint8_t num, JsonDocument &doc)
 {
-  const size_t size = measureJson(doc) + 1; // make room for \0 as well.
-  char buffer[size];
+  const size_t size = measureJson(doc);
+  char buffer[size + 1]; // make room for \0 as well.
   serializeJson(doc, buffer, size);
-  return webSocket.sendTXT(num, buffer, size - 1); // cut off \0 from data to be sent.
+  return webSocket.sendTXT(num, buffer, size);
+}
+
+bool wsBroadcastTxtJsonResponse(JsonDocument &doc)
+{
+  const size_t size = measureJson(doc);
+  char buffer[size + 1]; // make room for \0 as well.
+  serializeJson(doc, buffer, size);
+  return webSocket.broadcastTXT(buffer, size);
 }
 
 /**
@@ -354,30 +354,30 @@ const size_t wsGetInitStateJsonCapacity(bool includeCurrentConfig, int detailsCo
   return result;
 }
 
-void wsSetInitValuesHandleWifiMessaging(uint8_t num, const char *responseSubject, wl_status_t wifiState)
+void wsSetInitValuesHandleWifiMessaging(const char *responseSubject, wl_status_t wifiState)
 {
-  wsSetInitValuesHandleGenericessaging(num, responseSubject, "wifi", wifiHelpGetStateTxt(wifiState));
+  wsSetInitValuesHandleGenericMessaging(responseSubject, "wifi", wifiHelpGetStateTxt(wifiState));
 }
 
-void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, lwmqtt_return_code_t mqttState)
+void wsSetInitValuesHandleMQTTMessaging(const char *responseSubject, lwmqtt_return_code_t mqttState)
 {
-  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttHelpGetStateTxt(mqttState));
+  wsSetInitValuesHandleMQTTMessaging(responseSubject, mqttHelpGetStateTxt(mqttState));
 }
 
-void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, lwmqtt_err_t mqttState)
+void wsSetInitValuesHandleMQTTMessaging(const char *responseSubject, lwmqtt_err_t mqttState)
 {
-  wsSetInitValuesHandleMQTTMessaging(num, responseSubject, mqttHelpGetStateTxt(mqttState));
+  wsSetInitValuesHandleMQTTMessaging(responseSubject, mqttHelpGetStateTxt(mqttState));
 }
 
-void wsSetInitValuesHandleMQTTMessaging(uint8_t num, const char *responseSubject, const char *desc)
+void wsSetInitValuesHandleMQTTMessaging(const char *responseSubject, const char *desc)
 {
-  wsSetInitValuesHandleGenericessaging(num, responseSubject, "mqtt", desc);
+  wsSetInitValuesHandleGenericMessaging(responseSubject, "mqtt", desc);
 }
 
-void wsSetInitValuesHandleGenericessaging(uint8_t num, const char *responseSubject, const char *step, const char *desc)
+void wsSetInitValuesHandleGenericMessaging(const char *responseSubject, const char *step, const char *desc)
 {
   setPhase(step, desc);
-  wsSendStateDetails(num, responseSubject);
+  wsBroadcastInitStateDetails(responseSubject);
 }
 
 void setPhase(const char *step, const char *desc)
