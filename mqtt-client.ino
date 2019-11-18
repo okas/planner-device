@@ -242,6 +242,10 @@ void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int leng
   {
     // ToDo: api present...
   }
+  else if (len > 4 && topicTokens[4] == respInit)
+  { /* saartk/device/iotnode/FFFFFFFFFFFF/init-r */
+    wsHandleMQTTIoTNodeInitResponse(payload, length);
+  }
   else if (len > 6 && topicTokens[6] == cmndState)
   { /* saartk/device/iotnode/FFFFFFFFFFFF/cmnd/command/+ */
     int8_t idIdx = findOutputIndex(topicTokens);
@@ -251,11 +255,6 @@ void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int leng
   { /* saartk/device/iotnode/FFFFFFFFFFFF/cmnd/command/+ */
     cmndSetStateHandler(topicTokens, payload, length);
   }
-  /* saartk/device/iotnode/FF:FF:FF:FF:FF:FF/init-r */
-  // else if (topicTokens[4] == cmndSetState)
-  // {
-  //   cmndSetStateHandler(topicTokens, payload, length);
-  // }
   else
   {
     Serial.printf("- - Bad topic, unknown command! End handler.\n");

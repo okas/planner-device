@@ -211,8 +211,7 @@ void wsSetInitValues(const char *responseSubject, JsonObject payloadObj)
   }
   //  === MQTT == !
   // ! === IoTNode ===
-  wsSetInitValuesHandleGenericessaging(num, responseSubject, "iotnode", "WAITING_IDS_FROM_API");
-  //  === IoTNode == !
+  wsSetInitValuesHandleGenericMessaging(responseSubject, "iotnode", "INIT_WAITING_IDS_FROM_API");
 }
 
 void wsStoreOutputsToRAM(JsonArray values)
@@ -233,20 +232,53 @@ void wsStoreOutputsToRAM(JsonArray values)
   }
 }
 
-void wsSetInitValuesSuccessFinalize()
+void wsHandleMQTTIoTNodeInitResponse(const char *payload, size_t length)
 {
+  DynamicJsonDocument doc(mqttCalcResponseStructureSize(length));
+  deserializeJson(doc, payload);
+  if (wsMQTTIoTNodeInitErrorHandler(doc["errors"]))
+  {
+    _initState = InitState_t::failed;
+    // TODO Send Feedback with some error data here!
+    // wsSetInitValuesHandleGenericMessaging(num, "set-initValues-R", "iotnode", "INIT_FAILED_IDS_FROM_API");
+    return;
+  }
+  wsStoreOutputIdsToRAM(doc["outputs"]);
 
-  /* TODO If it wil lbe only called from MQTT messagehandler, then filter out calls
-     so that only if _initState == InitState_t::working (any more) will do something */
-  // ! === SUCCESS->END ===
-  //TODO this line can be only called after async response from MQTT API
-  // _initState = stageSucceed ? InitState_t::succeed : InitState_t::failed;
-  _initState = InitState_t::succeed;
-  _iotState = IOTState_t::initialized; // Refactor on of this file.
-  // TODO store ID' from API/MQTT as well.
   wsStoreConfigToEEPROM();
-  // wsSendState(num, responseSubject);
-  // === SUCCESS->END === !
+  _initState = InitState_t::succeed;
+  wsSetInitValuesHandleGenericMessaging("set-initValues-R", "iotnode", "INIT_SUCCESS");
+  //  === IoTNode == !
+}
+
+const size_t mqttCalcResponseStructureSize(size_t dataLength)
+{
+  const size_t baseSize = JSON_OBJECT_SIZE(1) + JSON_ARRAY_SIZE(lenOutputs) + lenOutputs * JSON_OBJECT_SIZE(2);
+  return wsCalcDeserializeSizeBaseOrDouble(dataLength, baseSize);
+}
+
+bool wsMQTTIoTNodeInitErrorHandler(JsonArray errors)
+{
+  if (!errors)
+  {
+    return false;
+  }
+  // TODO compose WS response for browser.
+  for (auto &&err : errors)
+  {
+    Serial.printf("~ ~ ~ ~ ~ err: %s\n", err.as<char *>());
+  }
+  return true;
+}
+
+void wsStoreOutputIdsToRAM(JsonArray outputs)
+{
+  for (size_t i = 0; i < lenOutputs; i++)
+  {
+    outDevices[i].id = outputs[i]["id"];
+    // TODO debug only!
+    Serial.printf("~ ~ ~ ~ ~ device.id: %llu\n", outDevices[i].id);
+  }
 }
 
 void wsStoreConfigToEEPROM()
@@ -256,7 +288,9 @@ void wsStoreConfigToEEPROM()
     EEPROM.put(device.addressUsage, device.usage);
     EEPROM.put(device.addressId, device.id);
   }
-  EEPROM.put(_AddressIoTState, _iotState);
+  /* Intentionally saved separately, Init Mode End method will set this value in RAM.
+   * This way probram overall stat still reflects that InitMode is on. */
+  EEPROM.put(_AddressIoTState, IOTState_t::initialized);
   EEPROM.commit();
 }
 
