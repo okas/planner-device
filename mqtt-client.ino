@@ -322,11 +322,7 @@ void publishResponseDeviceState(int8_t outputIdx, const vector<string> topicToke
   char payload[sizeof(device.state)];
   *(float *)(payload) = device.state; // convert float to bytes
   Serial.printf("- - responseTopic: \"%s\".\n", responseTopic);
-<<<<<<< HEAD
   printBuffer("- - responsePayload bytes: ", (byte *)payload, sizeof(payload));
-=======
-  printBuffer("- - responsePayload bytes: ", payload, sizeof(payload));
->>>>>>> aee5991be10c01939965f460de93f42240b43deb
   mqttClient.publish(responseTopic, payload);
 }
 
