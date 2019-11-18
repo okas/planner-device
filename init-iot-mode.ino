@@ -108,7 +108,8 @@ void wsTXTMessageHandler(uint8_t num, char *payload, size_t lenght)
   const char *subject = payloadDoc[0];
   if (strcmp(subject, "get-initState") == 0)
   {
-    wsGetInitState(num, "get-initState-R", _initState == InitState_t::idle);
+    JsonDocument responseDocument = wsGetInitStateDoc("get-initState-R", _initState == InitState_t::idle);
+    wsSendTxtJsonResponse(num, responseDocument);
   }
   else if (strcmp(subject, "set-initValues") == 0)
   {
@@ -116,7 +117,8 @@ void wsTXTMessageHandler(uint8_t num, char *payload, size_t lenght)
   }
   else if (strcmp(subject, "get-currentConfig") == 0)
   {
-    wsGetInitState(num, "get-currentConfig-R", true);
+    JsonDocument responseDocument = wsGetInitStateDoc("get-currentConfig-R", true);
+    wsSendTxtJsonResponse(num, responseDocument);
   }
 }
 
@@ -126,16 +128,16 @@ const size_t wsCalcIncomingJsonSize(size_t dataLength)
   return wsCalcDeserializeSizeBaseOrDouble(dataLength, baseSize);
 }
 
-void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurrentConfig)
+JsonDocument wsGetInitStateDoc(const char *responseSubject, bool includeCurrentConfig)
 {
   const size_t detailsCount = 1; // TODO Subject to change if array of messages need to be sent.
   const size_t capacity = wsGetInitStateJsonCapacity(includeCurrentConfig, detailsCount);
-  JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
+  JsonDocument doc = wsCreateResponse(capacity, responseSubject);
   // TODO Either add some meaningful or nothing as a Status Detail.
-  wsAddStateDetails(responseDoc);
+  wsAddStateDetails(doc);
   if (includeCurrentConfig)
   {
-    JsonObject data = responseDoc[1];
+    JsonObject data = doc[1];
     data["iotDeviceId"] = (const char *)iotNodeId;
     data["ssid"] = WiFi.SSID();
     data["psk"] = WiFi.psk();
@@ -146,7 +148,7 @@ void wsGetInitState(uint8_t num, const char *responseSubject, bool includeCurren
       outputs.add((const char *)device.usage);
     }
   }
-  wsSendTxtJsonResponse(num, responseDoc);
+  return doc;
 }
 
 void wsSetInitValues(const char *responseSubject, JsonObject payloadObj)
@@ -274,15 +276,15 @@ bool wsBroadcastInitStateDetails(const char *responseSubject, const char *step, 
 
 JsonDocument wsCreateResponse(const size_t docSize, const char *responseSubject, bool details)
 {
-  DynamicJsonDocument responseDoc(docSize);
-  responseDoc.add(responseSubject);
-  JsonObject data = responseDoc.createNestedObject();
+  DynamicJsonDocument doc(docSize);
+  doc.add(responseSubject);
+  JsonObject data = doc.createNestedObject();
   data["state"] = (byte)_initState; // otherwise inferes wrong type (boolean)
   if (details)
   {
     data.createNestedArray(staDet);
   }
-  return responseDoc;
+  return doc;
 }
 
 void wsAddStateDetails(JsonDocument &doc)
