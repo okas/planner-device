@@ -60,7 +60,7 @@ const size_t lenOutputs = sizeof(outDevices) / sizeof(OutputDevice_t);
 char wifiHostname[11];
 
 WiFiClient espClient;
-MQTTClient mqttClient(512);
+MQTTClient mqttClient(1024);
 WebSocketsServer webSocket(81);
 
 void setup()
