@@ -11,6 +11,8 @@ const char *cmndState = "state";
 const char *cmndSetState = "set-state";
 const char *cmndInit = "init";
 const char *respInit = "init-r";
+const char *cmndInitUpdate = "init-update";
+const char *respInitUpdate = "init-update-r";
 
 lwmqtt_return_code_t mqttConnect(uint8_t limit = 0);
 
@@ -77,18 +79,33 @@ lwmqtt_return_code_t mqttConnect(uint8_t limit)
 
 lwmqtt_err_t mqttSubscriberIoTInit()
 {
-  char topic[80];
-  mqttGetSubscrForOther(topic, nodeName, iotNodeId, respInit);
-  Serial.printf("- -subscribing to Init topic is : \"%s\"\n", topic);
-  mqttClient.subscribe(topic);
-  return mqttClient.lastError();
+  char topics[2][80];
+  lwmqtt_err_t err;
+  mqttGetSubscrForOther(topics[0], nodeName, iotNodeId, respInit);
+  mqttGetSubscrForOther(topics[1], nodeName, iotNodeId, respInitUpdate);
+  for (auto &&topic : topics)
+  {
+    Serial.printf("- - subscribing to Init* topic is : \"%s\"\n", topic);
+    mqttClient.subscribe(topic);
+    err = mqttClient.lastError();
+    if (err)
+    {
+      break;
+    }
+  }
+  return err;
 }
 
 bool mqttPublishIoTInit(int8_t &outErr)
 {
+  return mqttPublishIoTInit(outErr, false);
+}
+
+bool mqttPublishIoTInit(int8_t &outErr, bool forceUpdate)
+{
   bool ret;
   char topic[80];
-  mqttGetSubscrForOther(topic, nodeName, iotNodeId, cmndInit);
+  mqttGetSubscrForOther(topic, nodeName, iotNodeId, forceUpdate ? cmndInitUpdate : cmndInit);
   JsonDocument payloadDoc = mqttGenerateInitPayload();
   const size_t size = measureJson(payloadDoc) + 1; // make room for \0 as well.
   char buffer[size];
