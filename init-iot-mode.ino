@@ -3,6 +3,7 @@
 const char *STA_WIFI_KEY = "hellohello";
 const float leaveInitTimeout = 30;
 const char *staDet = "stateDetails";
+const char *respSetInitValues = "set-initValues-R";
 
 struct InitStatePhase_t
 {
@@ -23,7 +24,7 @@ bool startInitMode()
   if (result)
   {
     wsInit();
-    setPhase("IoT Node", "idle");
+    setPhase("iotnode", "idle");
   }
   return result;
 }
@@ -113,19 +114,13 @@ void wsTXTMessageHandler(uint8_t num, char *payload, size_t lenght)
   }
   else if (strcmp(subject, "set-initValues") == 0)
   {
-    wsSetInitValues("set-initValues-R", payloadDoc[1]);
+    wsSetInitValues(respSetInitValues, payloadDoc[1]);
   }
   else if (strcmp(subject, "get-currentConfig") == 0)
   {
     JsonDocument responseDocument = wsGetInitStateDoc("get-currentConfig-R", true);
     wsSendTxtJsonResponse(num, responseDocument);
   }
-}
-
-const size_t wsCalcIncomingJsonSize(size_t dataLength)
-{
-  const size_t baseSize = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_ARRAY_SIZE(lenOutputs);
-  return wsCalcDeserializeSizeBaseOrDouble(dataLength, baseSize);
 }
 
 JsonDocument wsGetInitStateDoc(const char *responseSubject, bool includeCurrentConfig)
@@ -209,9 +204,10 @@ void wsSetInitValues(const char *responseSubject, JsonObject payloadObj)
     wsSetInitValuesHandleMQTTMessaging(responseSubject, "__PUBLISH_FAILED");
     return;
   }
+  // TODO Init ping-pong with API server here?
   //  === MQTT == !
   // ! === IoTNode ===
-  wsSetInitValuesHandleGenericMessaging(responseSubject, "iotnode", "INIT_WAITING_IDS_FROM_API");
+  wsSetInitValuesHandleIoTNodeMessaging(responseSubject, "INIT_WAITING_IDS_FROM_API");
 }
 
 void wsStoreOutputsToRAM(JsonArray values)
@@ -234,40 +230,58 @@ void wsStoreOutputsToRAM(JsonArray values)
 
 void wsHandleMQTTIoTNodeInitResponse(const char *payload, size_t length)
 {
-  DynamicJsonDocument doc(mqttCalcResponseStructureSize(length));
-  deserializeJson(doc, payload);
-  if (wsMQTTIoTNodeInitErrorHandler(doc["errors"]))
+  if (wsHandleMQTTIoTInitErrors(payload, length))
   {
-    _initState = InitState_t::failed;
-    // TODO Send Feedback with some error data here!
-    // wsSetInitValuesHandleGenericMessaging(num, "set-initValues-R", "iotnode", "INIT_FAILED_IDS_FROM_API");
     return;
   }
-  wsStoreOutputIdsToRAM(doc["outputs"]);
-
+  DynamicJsonDocument doc(length * 2);
+  deserializeJson(doc, payload);
+  JsonArray outputs = doc["outputs"];
+  if (!outputs)
+  {
+    wsHandleMQTTITInitUnknownResponse(payload, length);
+    return;
+  }
+  wsStoreOutputIdsToRAM(outputs);
   wsStoreConfigToEEPROM();
   _initState = InitState_t::succeed;
-  wsSetInitValuesHandleGenericMessaging("set-initValues-R", "iotnode", "INIT_SUCCESS");
+  wsSetInitValuesHandleIoTNodeMessaging(respSetInitValues, "INIT_SUCCESS");
   //  === IoTNode == !
 }
 
-const size_t mqttCalcResponseStructureSize(size_t dataLength)
+void wsHandleMQTTIoTNodeInitUpdateResponse(const char *payload, size_t length)
 {
-  const size_t baseSize = JSON_OBJECT_SIZE(1) + JSON_ARRAY_SIZE(lenOutputs) + lenOutputs * JSON_OBJECT_SIZE(2);
-  return wsCalcDeserializeSizeBaseOrDouble(dataLength, baseSize);
+  if (wsHandleMQTTIoTInitErrors(payload, length))
+  {
+    return;
+  }
+  DynamicJsonDocument doc(length * 2);
+  deserializeJson(doc, payload);
+  if (doc["state"] != "ok")
+  {
+    wsHandleMQTTITInitUnknownResponse(payload, length);
+    return;
+  }
+  _initState = InitState_t::succeed;
+  wsSetInitValuesHandleIoTNodeMessaging(respSetInitValues, "INIT_SUCCESS");
 }
 
-bool wsMQTTIoTNodeInitErrorHandler(JsonArray errors)
+void wsHandleMQTTITInitUnknownResponse(const char *payload, size_t length)
 {
-  if (!errors)
+  _initState = InitState_t::failed;
+  wsSetInitValuesHandleIoTNodeMessaging(respSetInitValues, "INIT_FAILED_UNKNOWS_RESPONSE", payload, length);
+}
+
+bool wsHandleMQTTIoTInitErrors(const char *payload, size_t length)
+{
+  /* Avoid deserialization just yet, because with errors JSON is quite big,
+   * and it can be serialized directly to State Messaging WS response. */
+  if (!strstr(payload, "\"errors\":["))
   {
     return false;
   }
-  // TODO compose WS response for browser.
-  for (auto &&err : errors)
-  {
-    Serial.printf("~ ~ ~ ~ ~ err: %s\n", err.as<char *>());
-  }
+  _initState = InitState_t::failed;
+  wsSetInitValuesHandleIoTNodeMessaging(respSetInitValues, "INIT_FAILED_IDS_FROM_API", payload, length);
   return true;
 }
 
@@ -302,9 +316,19 @@ bool wsBroadcastInitStateDetails(const char *responseSubject)
 bool wsBroadcastInitStateDetails(const char *responseSubject, const char *step, const char *descr)
 {
   const size_t detailsCount = 1; // TODO Subject to change if array of messages need to be sent.
-  const size_t capacity = wsCalcResponseBaseSize() + wsCalcStateDetailsSize(detailsCount);
+  const size_t capacity = wsCalcResponseStateDetailsSize(detailsCount);
   JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
   wsAddStateDetails(responseDoc, step, descr);
+  return wsBroadcastTxtJsonResponse(responseDoc);
+}
+
+bool wsBroadcastInitStateDetailsMQTTErrors(const char *responseSubject, const char *errorsJson, size_t lenErrors)
+{
+  const size_t detailsCount = 1; // TODO Subject to change if array of messages need to be sent.
+  const size_t capacity = wsCalcResponseStateDetailsSize(detailsCount) + lenErrors;
+  JsonDocument responseDoc = wsCreateResponse(capacity, responseSubject);
+  wsAddStateDetails(responseDoc);
+  responseDoc[1]["apiresult"] = serialized(errorsJson, lenErrors);
   return wsBroadcastTxtJsonResponse(responseDoc);
 }
 
@@ -336,18 +360,37 @@ void wsAddStateDetails(JsonDocument &doc, const char *step, const char *descr)
 
 bool wsSendTxtJsonResponse(uint8_t num, JsonDocument &doc)
 {
-  const size_t size = measureJson(doc);
-  char buffer[size + 1]; // make room for \0 as well.
-  serializeJson(doc, buffer, size);
-  return webSocket.sendTXT(num, buffer, size);
+  const size_t size = measureJson(doc) + 1; // make room for \0 as well.
+  char buffer[size];
+  return webSocket.sendTXT(num, buffer, serializeJson(doc, buffer, size));
 }
 
 bool wsBroadcastTxtJsonResponse(JsonDocument &doc)
 {
-  const size_t size = measureJson(doc);
-  char buffer[size + 1]; // make room for \0 as well.
-  serializeJson(doc, buffer, size);
-  return webSocket.broadcastTXT(buffer, size);
+  const size_t size = measureJson(doc) + 1; // make room for \0 as well.
+  char buffer[size];
+  return webSocket.broadcastTXT(buffer, serializeJson(doc, buffer, size));
+}
+
+const size_t wsCalcIncomingJsonSize(size_t dataLength)
+{
+  const size_t baseSize = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_ARRAY_SIZE(lenOutputs);
+  return wsCalcDeserializeSizeBaseOrDouble(dataLength, baseSize);
+}
+
+const size_t mqttCalcResponseStructureSize(size_t dataLength)
+{
+  const size_t baseSize = mqttCalcErrorsStuctureBaseSize();
+  return wsCalcDeserializeSizeBaseOrDouble(dataLength, baseSize);
+}
+
+const size_t mqttCalcErrorsStuctureBaseSize()
+{
+  // TODO needs cleanup
+  return JSON_OBJECT_SIZE(2) +             // Main object variants: a) "outputs" b) "errors" end/or "existing"
+         JSON_ARRAY_SIZE(10) +             // for b) "errors", limited to 10 itmes
+         JSON_ARRAY_SIZE(lenOutputs) +     // "outputs" array length
+         lenOutputs * JSON_OBJECT_SIZE(2); // output objects, that have 2 members
 }
 
 /**
@@ -390,6 +433,11 @@ const size_t wsGetInitStateJsonCapacity(bool includeCurrentConfig, int detailsCo
   return result;
 }
 
+const size_t wsCalcResponseStateDetailsSize(size_t detailsCount)
+{
+  return wsCalcResponseBaseSize() + wsCalcStateDetailsSize(detailsCount);
+}
+
 void wsSetInitValuesHandleWifiMessaging(const char *responseSubject, wl_status_t wifiState)
 {
   wsSetInitValuesHandleGenericMessaging(responseSubject, "wifi", wifiHelpGetStateTxt(wifiState));
@@ -408,6 +456,16 @@ void wsSetInitValuesHandleMQTTMessaging(const char *responseSubject, lwmqtt_err_
 void wsSetInitValuesHandleMQTTMessaging(const char *responseSubject, const char *desc)
 {
   wsSetInitValuesHandleGenericMessaging(responseSubject, "mqtt", desc);
+}
+
+void wsSetInitValuesHandleIoTNodeMessaging(const char *responseSubject, const char *desc)
+{
+  wsSetInitValuesHandleGenericMessaging(responseSubject, "iotnode", desc);
+}
+void wsSetInitValuesHandleIoTNodeMessaging(const char *responseSubject, const char *desc, const char *errorsJson, size_t lenErrors)
+{
+  setPhase("iotnode", desc);
+  wsBroadcastInitStateDetailsMQTTErrors(responseSubject, errorsJson, lenErrors);
 }
 
 void wsSetInitValuesHandleGenericMessaging(const char *responseSubject, const char *step, const char *desc)
