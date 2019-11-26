@@ -32,10 +32,10 @@ struct OutputDevice_t
 
 enum IOTState_t : byte
 {
-  started,
-  initMode,
-  initialized,
-  operating
+  started = 0,
+  initMode = 1,
+  initialized = 2,
+  operating = 3
 };
 
 enum InitState_t : byte
