@@ -15,8 +15,7 @@ void eepromInitialize()
 
 const size_t eepromCalcAddresses()
 {
-  /* Experiencing some wearout! */
-  size_t size = 20; // This statement's value is the very start address of the EEPROM allocation.
+  size_t size = 0; // This statement's value is the very start address of the EEPROM allocation.
   eepromCalcEEPROMState(&size);
   eepromCalcIoTStateAddresses(&size);
   eepromCalcOutputsAddresses(&size);

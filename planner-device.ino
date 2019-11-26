@@ -75,14 +75,17 @@ void setup()
   // Decide when exactly need to go to the Init mode.
   if (_iotState == IOTState_t::initialized && wifiStationConnect())
   { /* Normal, initialization is done, and WiFi work. */
+    Serial.printf("~ ~ ~ ~ ~ GOTO OPERATING MODE: _iotState: %d\n", _iotState);
     gotoOperatingMode();
   }
-  else if (_iotState == IOTState_t::started)
+  else if (_iotState == IOTState_t::started || _iotState == IOTState_t::initMode)
   { /* IoT node need initialization. */
+    Serial.printf("~ ~ ~ ~ ~ GOTO INIT MODE: _iotState: %d\n", _iotState);
     gotoIotInitMode();
   }
   else
   { /* WiFi connection failure, but initialized */
+    Serial.printf("~ ~ ~ ~ ~ GOTO IDLE!!: _iotState: %d\n", _iotState);
 
     // WiFi.disconnect();
     // startLEDBlinker();
