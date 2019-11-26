@@ -132,18 +132,20 @@ JsonDocument wsGetInitStateDoc(const char *responseSubject, bool includeCurrentC
   wsAddStateDetails(doc);
   if (includeCurrentConfig)
   {
-    JsonObject data = doc[1];
-    data["iotDeviceId"] = (const char *)iotNodeId;
-    data["ssid"] = WiFi.SSID();
-    data["psk"] = WiFi.psk();
-    data["iotType"] = IOT_TYPE;
-    JsonArray outputs = data.createNestedArray("outputs");
-    for (OutputDevice_t &device : outDevices)
-    {
-      outputs.add((const char *)device.usage);
-    }
+    wsGetInitStateDocIncludeConfig(doc);
   }
   return doc;
+}
+
+void wsGetInitStateDocIncludeConfig(JsonDocument &doc)
+{
+  JsonObject data = doc[1];
+  data["iotDeviceId"] = (const char *)iotNodeId;
+  data["ssid"] = WiFi.SSID();
+  data["psk"] = WiFi.psk();
+  data["iotType"] = IOT_TYPE;
+  JsonArray outputs = data.createNestedArray("outputs");
+  jsonGenerateOutputsArrayContentFromConfig(outputs);
 }
 
 void wsSetInitValues(const char *responseSubject, JsonObject payloadObj)
@@ -210,13 +212,13 @@ void wsSetInitValues(const char *responseSubject, JsonObject payloadObj)
   wsSetInitValuesHandleIoTNodeMessaging(responseSubject, "INIT_WAITING_IDS_FROM_API");
 }
 
-void wsStoreOutputsToRAM(JsonArray values)
+void wsStoreOutputsToRAM(JsonArray outputs)
 {
   size_t lenUsage = sizeof(OutputDevice_t::usage);
   for (size_t i = 0; i < lenOutputs; i++)
   {
     OutputDevice_t &device = outDevices[i];
-    const char *val = values[i] | "";
+    const char *val = outputs[i]["usage"] | "";
     size_t lenVal = strlen(val);
     memset(device.usage, '\0', lenUsage);
     if (lenVal > 0)
@@ -374,7 +376,7 @@ bool wsBroadcastTxtJsonResponse(JsonDocument &doc)
 
 const size_t wsCalcIncomingJsonSize(size_t dataLength)
 {
-  const size_t baseSize = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_ARRAY_SIZE(lenOutputs);
+  const size_t baseSize = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(3) + calcOutputsArraySize();
   return wsCalcDeserializeSizeBaseOrDouble(dataLength, baseSize);
 }
 
@@ -426,7 +428,7 @@ const size_t wsGetInitStateJsonCapacity(bool includeCurrentConfig, int detailsCo
   /* Add stateDetails:[] and its members. */
   if (includeCurrentConfig)
   { /* Dynamically add IoT Config outputs:[] */
-    result += JSON_ARRAY_SIZE(lenOutputs);
+    result += calcOutputsArraySize();
     /* PSK+1 + SSID+1 */
     result += 65 + 33;
   }

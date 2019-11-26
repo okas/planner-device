@@ -83,6 +83,21 @@ bool eepromIoTStateStore(IOTState_t state)
   return EEPROM.commit();
 }
 
+void jsonGenerateOutputsArrayContentFromConfig(JsonArray outputsArray)
+{
+  for (OutputDevice_t &device : outDevices)
+  {
+    JsonObject out = outputsArray.createNestedObject();
+    out["id"] = device.id;
+    out["usage"] = (const char *)device.usage;
+  }
+}
+
+const size_t calcOutputsArraySize()
+{
+  return JSON_ARRAY_SIZE(lenOutputs) + (lenOutputs * JSON_OBJECT_SIZE(2));
+}
+
 const char *wifiHelpGetStateTxt(int status)
 {
   switch (status)

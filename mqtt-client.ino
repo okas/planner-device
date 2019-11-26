@@ -122,18 +122,13 @@ JsonDocument mqttGenerateInitPayload()
   DynamicJsonDocument payloadDoc(mqttCalcInitPayloadSize());
   payloadDoc["iottype"] = IOT_TYPE;
   JsonArray outputs = payloadDoc.createNestedArray("outputs");
-  for (OutputDevice_t &device : outDevices)
-  {
-    JsonObject out = outputs.createNestedObject();
-    out["id"] = device.id;
-    out["usage"] = (const char *)device.usage;
-  }
+  jsonGenerateOutputsArrayContentFromConfig(outputs);
   return payloadDoc;
 }
 
 const size_t mqttCalcInitPayloadSize()
 {
-  size_t result = JSON_OBJECT_SIZE(2) + JSON_ARRAY_SIZE(lenOutputs) + (lenOutputs * JSON_OBJECT_SIZE(2));
+  size_t result = JSON_OBJECT_SIZE(2) + calcOutputsArraySize();
   /* For copied bytes:
    * outputDevice.id: sizeof();
    * outputDevice.usage: room for `\0`. */
