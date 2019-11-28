@@ -4,6 +4,7 @@ const char *STA_WIFI_KEY = "hellohello";
 const float leaveInitTimeout = 30;
 const char *staDet = "stateDetails";
 const char *respSetInitValues = "set-initValues-R";
+const char *respSetInitValuesUpdate = "set-initValuesUpdate-R";
 
 struct InitStatePhase_t
 {
@@ -114,7 +115,11 @@ void wsTXTMessageHandler(uint8_t num, char *payload, size_t lenght)
   }
   else if (strcmp(subject, "set-initValues") == 0)
   {
-    wsSetInitValues(respSetInitValues, payloadDoc[1]);
+    wsSetInitValues(payloadDoc[1]);
+  }
+  else if (strcmp(subject, "set-initValuesUpdate") == 0)
+  {
+    wsSetInitValuesUpdate(payloadDoc[1]);
   }
   else if (strcmp(subject, "get-currentConfig") == 0)
   {
@@ -148,14 +153,65 @@ void wsGetInitStateDocIncludeConfig(JsonDocument &doc)
   jsonGenerateOutputsArrayContentFromConfig(outputs);
 }
 
-void wsSetInitValues(const char *responseSubject, JsonObject payloadObj)
+void wsSetInitValues(JsonObject payloadObj)
+{
+  if (!wsSetInitValuesCommon(respSetInitValues, payloadObj, false))
+  {
+    return;
+  }
+  // TODO Init ping-pong with API server here?
+  wsSetInitValuesHandleIoTNodeMessaging(respSetInitValues, "INIT_WAITING_IDS_FROM_API");
+}
+
+void wsSetInitValuesUpdate(JsonObject payloadObj)
+{
+  if (!wsSetInitValuesCommon(respSetInitValuesUpdate, payloadObj, true))
+  {
+    return;
+  }
+  /* All good untill here -- we are waiting response from API server */
+  // TODO Init ping-pong with API server here?
+  wsSetInitValuesHandleIoTNodeMessaging(respSetInitValuesUpdate, "INITUPDATE_WAITING_CONFIRM_FROM_API");
+}
+
+bool wsSetInitValuesCommon(const char *responseSubject, JsonObject payloadObj, bool forUpdate)
 {
   _initState = InitState_t::working;
-  // TODO analyze if it needs to be here, maybe it is too eraly.
-  // changeOutputStates();
-  // if (!wifiStationInit(payloadObj["ssid"], payloadObj["psk"]))
   wsStoreOutputsToRAM(payloadObj["outputs"]);
-  // ! === WiFi ===
+  if (!wsSetInitValuesCommonPhaseWiFi(responseSubject, payloadObj))
+  {
+    return false;
+  }
+  if (!wsSetInitValuesCommonPhaseMQTT(responseSubject, payloadObj, forUpdate))
+  {
+    return false;
+  }
+  return true;
+}
+
+void wsStoreOutputsToRAM(JsonArray outputs)
+{
+  // TODO complement correct state signaling with '_initState = InitState_t::'
+  size_t lenUsage = sizeof(OutputDevice_t::usage);
+  for (size_t i = 0; i < lenOutputs; i++)
+  {
+    OutputDevice_t &device = outDevices[i];
+    JsonObject outObj = outputs[i];
+    device.id = outObj["id"];
+    const char *val = outObj["usage"] | "";
+    size_t lenVal = strlen(val);
+    memset(device.usage, '\0', lenUsage);
+    if (lenVal > 0)
+    {
+      strncpy(device.usage, val, lenVal < lenUsage ? lenVal : lenUsage);
+      /* Ensure 0-terminated */
+      device.usage[lenUsage - 1] = '\0';
+    }
+  }
+}
+
+bool wsSetInitValuesCommonPhaseWiFi(const char *responseSubject, JsonObject payloadObj)
+{
   const char *ssid = payloadObj["ssid"];
   const char *psk = payloadObj["psk"];
   wl_status_t wifiResult;
@@ -183,98 +239,77 @@ void wsSetInitValues(const char *responseSubject, JsonObject payloadObj)
     {
       _initState = InitState_t::failed;
       WiFi.setAutoReconnect(false);
-      return;
+      return false;
     }
   }
-  //  === WiFi == !
-  // ! === MQTT ===
+  return true;
+}
+
+bool wsSetInitValuesCommonPhaseMQTT(const char *responseSubject, JsonObject payloadObj, bool forUpdate)
+{
   int8_t mqttState = mqttIoTInit();
   wsSetInitValuesHandleMQTTMessaging(responseSubject, (lwmqtt_return_code_t)mqttState);
   if (mqttState != 0)
   {
     _initState = InitState_t::failed;
-    return;
+    return false;
   }
-  bool pubResult = mqttPublishIoTInit(mqttState);
+  bool pubResult = mqttPublishIoTInit(mqttState, forUpdate);
   if (!pubResult)
   {
     _initState = InitState_t::failed;
-    if (mqttState != 0)
-    {
-      wsSetInitValuesHandleMQTTMessaging(responseSubject, (lwmqtt_err_t)mqttState);
-    }
+    wsSetInitValuesHandleMQTTMessaging(responseSubject, (lwmqtt_err_t)mqttState);
     wsSetInitValuesHandleMQTTMessaging(responseSubject, "__PUBLISH_FAILED");
-    return;
+    return false;
   }
-  // TODO Init ping-pong with API server here?
-  //  === MQTT == !
-  // ! === IoTNode ===
-  wsSetInitValuesHandleIoTNodeMessaging(responseSubject, "INIT_WAITING_IDS_FROM_API");
-}
-
-void wsStoreOutputsToRAM(JsonArray outputs)
-{
-  size_t lenUsage = sizeof(OutputDevice_t::usage);
-  for (size_t i = 0; i < lenOutputs; i++)
-  {
-    OutputDevice_t &device = outDevices[i];
-    const char *val = outputs[i]["usage"] | "";
-    size_t lenVal = strlen(val);
-    memset(device.usage, '\0', lenUsage);
-    if (lenVal > 0)
-    {
-      strncpy(device.usage, val, lenVal < lenUsage ? lenVal : lenUsage);
-      /* Ensure 0-terminated */
-      device.usage[lenUsage - 1] = '\0';
-    }
-  }
+  return true;
 }
 
 void wsHandleMQTTIoTNodeInitResponse(const char *payload, size_t length)
 {
-  if (wsHandleMQTTIoTInitErrors(payload, length))
+  if (wsHandleMQTTIoTInitErrors(respSetInitValues, "INIT_FAILED_IDS_FROM_API", payload, length))
   {
     return;
   }
-  DynamicJsonDocument doc(length * 2);
+  DynamicJsonDocument doc(mqttCalcResponseStructureSize(length));
   deserializeJson(doc, payload);
   JsonArray outputs = doc["outputs"];
   if (!outputs)
   {
-    wsHandleMQTTITInitUnknownResponse(payload, length);
+    wsHandleMQTTITInitUnknownResponse(respSetInitValues, payload, length);
     return;
   }
   wsStoreOutputIdsToRAM(outputs);
   wsStoreConfigToEEPROM();
   _initState = InitState_t::succeed;
   wsSetInitValuesHandleIoTNodeMessaging(respSetInitValues, "INIT_SUCCESS");
-  //  === IoTNode == !
 }
 
 void wsHandleMQTTIoTNodeInitUpdateResponse(const char *payload, size_t length)
 {
-  if (wsHandleMQTTIoTInitErrors(payload, length))
+  if (wsHandleMQTTIoTInitErrors(respSetInitValues, "INITUPDATE_FAILED_FROM_API", payload, length))
   {
     return;
   }
-  DynamicJsonDocument doc(length * 2);
+  DynamicJsonDocument doc(mqttCalcResponseStructureSize(length));
   deserializeJson(doc, payload);
   if (doc["state"] != "ok")
   {
-    wsHandleMQTTITInitUnknownResponse(payload, length);
+    wsHandleMQTTITInitUnknownResponse(respSetInitValuesUpdate, payload, length);
     return;
   }
+  wsStoreConfigToEEPROM();
   _initState = InitState_t::succeed;
-  wsSetInitValuesHandleIoTNodeMessaging(respSetInitValues, "INIT_SUCCESS");
+  wsSetInitValuesHandleIoTNodeMessaging(respSetInitValuesUpdate, "INITUPDATE_SUCCESS");
 }
 
-void wsHandleMQTTITInitUnknownResponse(const char *payload, size_t length)
+void wsHandleMQTTITInitUnknownResponse(const char *responseSubject, const char *payload, size_t length)
 {
   _initState = InitState_t::failed;
-  wsSetInitValuesHandleIoTNodeMessaging(respSetInitValues, "INIT_FAILED_UNKNOWS_RESPONSE", payload, length);
+  wsSetInitValuesHandleIoTNodeMessaging(responseSubject, "INIT_FAILED_UNKNOWS_RESPONSE", payload, length);
 }
 
-bool wsHandleMQTTIoTInitErrors(const char *payload, size_t length)
+bool wsHandleMQTTIoTInitErrors(const char *responseSubject, const char *failedDescription, const char *payload, size_t length)
 {
   /* Avoid deserialization just yet, because with errors JSON is quite big,
    * and it can be serialized directly to State Messaging WS response. */
@@ -283,7 +318,7 @@ bool wsHandleMQTTIoTInitErrors(const char *payload, size_t length)
     return false;
   }
   _initState = InitState_t::failed;
-  wsSetInitValuesHandleIoTNodeMessaging(respSetInitValues, "INIT_FAILED_IDS_FROM_API", payload, length);
+  wsSetInitValuesHandleIoTNodeMessaging(responseSubject, failedDescription, payload, length);
   return true;
 }
 
@@ -389,7 +424,7 @@ const size_t mqttCalcResponseStructureSize(size_t dataLength)
 const size_t mqttCalcErrorsStuctureBaseSize()
 {
   // TODO needs cleanup
-  return JSON_OBJECT_SIZE(2) +             // Main object variants: a) "outputs" b) "errors" end/or "existing"
+  return JSON_OBJECT_SIZE(2) +             // Main object variants: a) "outputs" b) "errors" and/or "existing" c) "state"
          JSON_ARRAY_SIZE(10) +             // for b) "errors", limited to 10 itmes
          JSON_ARRAY_SIZE(lenOutputs) +     // "outputs" array length
          lenOutputs * JSON_OBJECT_SIZE(2); // output objects, that have 2 members
