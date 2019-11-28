@@ -530,6 +530,7 @@ void clearTempOutputs()
     size_t lenUsage = sizeof(OutputDevice_t::usage);
     for (OutputDevice_t &device : outDevices)
     {
+      device.id = 0ULL;
       memset(device.usage, '\0', lenUsage);
     }
   }
