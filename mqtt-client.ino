@@ -96,11 +96,6 @@ lwmqtt_err_t mqttSubscriberIoTInit()
   return err;
 }
 
-bool mqttPublishIoTInit(int8_t &outErr)
-{
-  return mqttPublishIoTInit(outErr, false);
-}
-
 bool mqttPublishIoTInit(int8_t &outErr, bool forceUpdate)
 {
   bool ret;
