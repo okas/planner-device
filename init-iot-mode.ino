@@ -280,8 +280,7 @@ void wsHandleMQTTIoTNodeInitResponse(const char *payload, size_t length)
     return;
   }
   wsStoreOutputIdsToRAM(outputs);
-  wsStoreConfigToEEPROM();
-  _initState = InitState_t::succeed;
+  wsHandleMQTTIoTNodeInitFinalize();
   wsSetInitValuesHandleIoTNodeMessaging(respSetInitValues, "INIT_SUCCESS");
 }
 
@@ -298,8 +297,7 @@ void wsHandleMQTTIoTNodeInitUpdateResponse(const char *payload, size_t length)
     wsHandleMQTTITInitUnknownResponse(respSetInitValuesUpdate, payload, length);
     return;
   }
-  wsStoreConfigToEEPROM();
-  _initState = InitState_t::succeed;
+  wsHandleMQTTIoTNodeInitFinalize();
   wsSetInitValuesHandleIoTNodeMessaging(respSetInitValuesUpdate, "INITUPDATE_SUCCESS");
 }
 
@@ -307,6 +305,12 @@ void wsHandleMQTTITInitUnknownResponse(const char *responseSubject, const char *
 {
   _initState = InitState_t::failed;
   wsSetInitValuesHandleIoTNodeMessaging(responseSubject, "INIT_FAILED_UNKNOWS_RESPONSE", payload, length);
+}
+
+void wsHandleMQTTIoTNodeInitFinalize()
+{
+  wsStoreConfigToEEPROM();
+  _initState = InitState_t::succeed;
 }
 
 bool wsHandleMQTTIoTInitErrors(const char *responseSubject, const char *failedDescription, const char *payload, size_t length)
