@@ -137,7 +137,7 @@ void mqttSubscriberNormal()
   for (OutputDevice_t &device : outDevices)
   {
     const char *type = device.usage;
-    if (strlen(type) == 0)
+    if (!strlen(type))
     {
       continue;
     }
