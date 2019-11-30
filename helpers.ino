@@ -33,6 +33,13 @@ vector<string> strsplit(const char *phrase, const char *delimiter)
   return ret;
 }
 
+char *llutoa(uint64_t value)
+{
+  char buffer[sizeof(int64_t) * 8 + 1];
+  sprintf(buffer, "%llu", value);
+  return buffer;
+}
+
 size_t getInUseOutputCount()
 {
   size_t result = 0;

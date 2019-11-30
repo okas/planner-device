@@ -141,8 +141,9 @@ void mqttSubscriberNormal()
     {
       continue;
     }
-    mqttSubscribeOutputToCommand(type, l64a(device.id), cmndSetState);
-    mqttSubscribeOutputToCommand(type, l64a(device.id), cmndState);
+    const char *id = llutoa(device.id);
+    mqttSubscribeOutputToCommand(type, id, cmndSetState);
+    mqttSubscribeOutputToCommand(type, id, cmndState);
   }
   // TODO: subscribe to node topics?
   const char *topicApiPresent = "saartk/api/present";
