@@ -141,7 +141,8 @@ void mqttSubscriberNormal()
     {
       continue;
     }
-    const char *id = llutoa(device.id);
+    char id[22];
+    sprintf(id, "%llu", device.id);
     mqttSubscribeOutputToCommand(device.usage, id, cmndSetState);
     mqttSubscribeOutputToCommand(device.usage, id, cmndState);
   }
