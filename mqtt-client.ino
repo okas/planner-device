@@ -137,14 +137,13 @@ void mqttSubscriberNormal()
   Serial.printf(" subscribing to following topics: \n");
   for (OutputDevice_t &device : outDevices)
   {
-    const char *type = device.usage;
-    if (!strlen(type))
+    if (!strlen(device.usage))
     {
       continue;
     }
     const char *id = llutoa(device.id);
-    mqttSubscribeOutputToCommand(type, id, cmndSetState);
-    mqttSubscribeOutputToCommand(type, id, cmndState);
+    mqttSubscribeOutputToCommand(device.usage, id, cmndSetState);
+    mqttSubscribeOutputToCommand(device.usage, id, cmndState);
   }
   // TODO: subscribe to node topics?
   const char *topicApiPresent = "saartk/api/present";
