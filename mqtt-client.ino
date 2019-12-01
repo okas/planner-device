@@ -176,18 +176,21 @@ void mqttPublishPresentNormal()
 
 JsonDocument mqttGeneratePresentPayload()
 {
-  const size_t docSize = JSON_ARRAY_SIZE(lenOutputs) + (1 + lenOutputs * JSON_OBJECT_SIZE(1));
+  const size_t docSize = JSON_OBJECT_SIZE(1) +
+                         JSON_ARRAY_SIZE(lenOutputs) +
+                         (lenOutputs * JSON_OBJECT_SIZE(3));
   DynamicJsonDocument payloadDoc(docSize);
   JsonArray outputs = payloadDoc.createNestedArray("outputs");
-  for (size_t i = 0; i < lenOutputs; i++)
+  for (OutputDevice_t &device : outDevices)
   {
-    const char *type = outDevices[i].usage;
-    if (strlen(type) == 0)
+    if (!strlen(device.usage))
     {
       continue;
     }
     JsonObject out = outputs.createNestedObject();
-    out[l64a(outDevices[i].id)] = outDevices[i].state;
+    out["id"] = device.id;
+    out["usage"] = device.usage;
+    out["state"] = device.state;
   }
   return payloadDoc;
 }
