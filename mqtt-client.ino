@@ -251,7 +251,7 @@ void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int leng
   const vector<string> topicTokens = strsplit(topic, "/");
   const size_t len = topicTokens.size();
   if (len > 1 && topicTokens[1] == "api")
-  {
+  { /* saartk/api/present */
     // ToDo: api present...
   }
   else if (len > 4 && topicTokens[4] == respInit)
