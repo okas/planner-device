@@ -225,7 +225,7 @@ void logMessage(char *topic, char *payload, int length)
   Serial.println(">>>>> Message:");
   Serial.printf(" topic: \"%s\"\n", topic);
   Serial.printf(" length of payload: %d\n", length);
-  Serial.printf(" payload: %s\n", payload);
+  Serial.printf(" payload: \"%s\"\n", length ? payload : "");
   Serial.println("<<<<<");
 }
 
