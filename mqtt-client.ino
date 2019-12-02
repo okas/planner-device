@@ -264,8 +264,7 @@ void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int leng
   }
   else if (len > 5 && topicTokens[4] == "cmnd" && topicTokens[5] == cmndState)
   { /* saartk/device/iotnode/FFFFFFFFFFFF/cmnd/command/+ */
-    int8_t idIdx = findOutputIndex(topicTokens);
-    publishResponseDeviceState(idIdx, topicTokens);
+    cmndStateHandler(topicTokens);
   }
   else if (len > 5 && topicTokens[4] == "cmnd" && topicTokens[5] == cmndSetState)
   { /* saartk/device/iotnode/FFFFFFFFFFFF/cmnd/command/+ */
@@ -278,81 +277,85 @@ void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int leng
   }
 }
 
-void cmndSetStateHandler(const vector<string> topicTokens, char *buffer, size_t length)
+void cmndStateHandler(const vector<string> topicTokens)
 {
-  int8_t idIdx = findOutputIndex(topicTokens);
-  if (idIdx < -1)
+  bool foundDevice;
+  OutputDevice_t *device = findOutputDevice(topicTokens[3].c_str(), foundDevice);
+  if (!foundDevice)
   {
-    Serial.println("Topic don't contain known output index. End new setting the state!");
     return;
   }
-  float state = bufferToFloat(buffer, length);
-  if (idIdx == -1)
+  publishResponseDeviceState(device, topicTokens);
+}
+
+void cmndSetStateHandler(const vector<string> topicTokens, char *payload, size_t length)
+{
+  bool foundDevice;
+  OutputDevice_t *device = findOutputDevice(topicTokens[3].c_str(), foundDevice);
+  if (!foundDevice)
   {
-    for (size_t i = 0; i < lenOutputs; i++)
+    return;
+  }
+  float state = bufferToFloat(payload, length);
+  setStateAndSave(device, state);
+  publishResponseDeviceState(device, topicTokens);
+}
+
+OutputDevice_t *findOutputDevice(const char *id, bool &found)
+{
+  uint64_t _id = strtoull(id, nullptr, 10);
+  OutputDevice_t *foundDevice;
+  for (OutputDevice_t &device : outDevices)
+  {
+    if (device.id == _id)
     {
-      setStateAndSave(i, state);
+      foundDevice = &device;
+      break;
     }
+  }
+  if (foundDevice->pin)
+  {
+    found = true;
   }
   else
   {
-    setStateAndSave(idIdx, state);
+    found = false;
+    Serial.printf("- - didn't found device with id: %s\n", id);
   }
-  publishResponseDeviceState(idIdx, topicTokens);
+  return foundDevice;
 }
 
-int8_t findOutputIndex(const vector<string> topicTokens)
+void setStateAndSave(OutputDevice_t *device, float state)
 {
-  string x = topicTokens[4];
-  if (x.length() == 0)
-  { /* all devices/indices */
-    return -1;
-  }
-  if (x == "0")
-  {
-    return 0;
-  }
-  unsigned int idx = atoi(x.c_str());
-  if (idx < 0 || idx > lenOutputs - 1)
-  {
-    return -2;
-  }
-  return (int8_t)idx;
-}
-
-void setStateAndSave(int8_t outputIdx, float state)
-{
-  OutputDevice_t &device = outDevices[outputIdx];
-  device.state = state;
-  analogWrite(device.pin, round(device.state * 1024));
-  EEPROM.put(device.addressState, device.state);
+  device->state = state;
+  analogWrite(device->pin, round(device->state * 1024));
+  EEPROM.put(device->addressState, device->state);
   EEPROM.commit();
-  Serial.printf("- - set GPIO PIN value: \"%d\"=\"%f\"\n", device.pin, device.state);
+  Serial.printf("- - set GPIO PIN value: \"%d\"=\"%f\"\n", device->pin, device->state);
 }
 
-void publishResponseDeviceState(int8_t outputIdx, const vector<string> topicTokens)
+void publishResponseDeviceState(OutputDevice_t *device, const vector<string> topicTokens)
 {
-  OutputDevice_t &device = outDevices[outputIdx];
   // ToDo handle JSON responses as well
-  char *responseTopic = createResponseTopic(topicTokens);
-  char payload[sizeof(device.state)];
-  *(float *)(payload) = device.state; // convert float to bytes
+  char responseTopic[120] = {0};
+  createResponseTopic(responseTopic, topicTokens);
+  char payload[sizeof(device->state)];
+  *(float *)(payload) = device->state; // convert float to bytes
   Serial.printf("- - responseTopic: \"%s\".\n", responseTopic);
   printBuffer("- - responsePayload bytes: ", (byte *)payload, sizeof(payload));
   mqttClient.publish(responseTopic, payload);
 }
 
-char *createResponseTopic(const vector<string> topicTokens)
+char *createResponseTopic(char *buffer, const vector<string> topicTokens)
 {
   const size_t lenTok = topicTokens.size();
-  char result[sizeof(topicTokens) + lenTok];
   for (size_t i = 0; i < lenTok; i++)
   {
-    if (i > 0)
+    if (i)
     {
-      strcat(result, "/");
+      strcat(buffer, "/");
     }
-    strcat(result, i != 5 ? topicTokens[i].c_str() : "resp");
+    strcat(buffer, i != 4 ? topicTokens[i].c_str() : "resp");
   }
-  return result;
+  return buffer;
 }
