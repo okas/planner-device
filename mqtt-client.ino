@@ -262,12 +262,12 @@ void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int leng
   { /* saartk/device/iotnode/FFFFFFFFFFFF/init-r */
     wsHandleMQTTIoTNodeInitUpdateResponse(payload, length);
   }
-  else if (len > 6 && topicTokens[6] == cmndState)
+  else if (len > 5 && topicTokens[4] == "cmnd" && topicTokens[5] == cmndState)
   { /* saartk/device/iotnode/FFFFFFFFFFFF/cmnd/command/+ */
     int8_t idIdx = findOutputIndex(topicTokens);
     publishResponseDeviceState(idIdx, topicTokens);
   }
-  else if (len > 6 && topicTokens[6] == cmndSetState)
+  else if (len > 5 && topicTokens[4] == "cmnd" && topicTokens[5] == cmndSetState)
   { /* saartk/device/iotnode/FFFFFFFFFFFF/cmnd/command/+ */
     cmndSetStateHandler(topicTokens, payload, length);
   }
