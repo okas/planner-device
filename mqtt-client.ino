@@ -189,7 +189,7 @@ JsonDocument mqttGeneratePresentPayload()
     }
     JsonObject out = outputs.createNestedObject();
     out["id"] = device.id;
-    out["usage"] = device.usage;
+    out["usage"] = (const char *)device.usage;
     out["state"] = device.state;
   }
   return payloadDoc;
