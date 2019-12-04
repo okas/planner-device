@@ -296,8 +296,11 @@ void cmndSetStateHandler(const vector<string> topicTokens, char *payload, size_t
   {
     return;
   }
-  float state = bufferToFloat(payload, length);
-  setStateAndSave(device, state);
+  device->state = strtof(payload, nullptr);
+  analogWrite(device->pin, round(device->state * 1024));
+  EEPROM.put(device->addressState, device->state);
+  EEPROM.commit();
+  Serial.printf("- - set GPIO PIN value: \"%d\"=\"%f\"\n", device->pin, device->state);
   publishResponseDeviceState(device, topicTokens);
 }
 
@@ -325,24 +328,14 @@ OutputDevice_t *findOutputDevice(const char *id, bool &found)
   return foundDevice;
 }
 
-void setStateAndSave(OutputDevice_t *device, float state)
-{
-  device->state = state;
-  analogWrite(device->pin, round(device->state * 1024));
-  EEPROM.put(device->addressState, device->state);
-  EEPROM.commit();
-  Serial.printf("- - set GPIO PIN value: \"%d\"=\"%f\"\n", device->pin, device->state);
-}
-
 void publishResponseDeviceState(OutputDevice_t *device, const vector<string> topicTokens)
 {
-  // ToDo handle JSON responses as well
   char responseTopic[120] = {0};
   createResponseTopic(responseTopic, topicTokens);
-  char payload[sizeof(device->state)];
-  *(float *)(payload) = device->state; // convert float to bytes
+  char payload[9];
+  snprintf(payload, sizeof(payload), "%.6f", device->state);
   Serial.printf("- - responseTopic: \"%s\".\n", responseTopic);
-  printBuffer("- - responsePayload bytes: ", (byte *)payload, sizeof(payload));
+  Serial.printf("- - responsePayload: \"%s\".\n", payload);
   mqttClient.publish(responseTopic, payload);
 }
 

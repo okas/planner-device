@@ -1,18 +1,3 @@
-union UnionFloatByte {
-  float f;
-  byte b[sizeof f];
-};
-
-float bufferToFloat(char *buffer, unsigned int length)
-{
-  UnionFloatByte temp;
-  for (size_t i = 0; i < length; i++)
-  {
-    temp.b[i] = buffer[i];
-  }
-  return temp.f;
-}
-
 vector<string> strsplit(const char *phrase, const char *delimiter)
 {
   string s = phrase;
