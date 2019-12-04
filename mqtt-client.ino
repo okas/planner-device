@@ -229,20 +229,6 @@ void logMessage(char *topic, char *payload, int length)
   Serial.println("<<<<<");
 }
 
-void printBuffer(const char *msg, byte *buffer, int length)
-{
-  Serial.printf("%s<", msg);
-  for (unsigned int i = 0; i < length; i++)
-  {
-    if (i)
-    {
-      Serial.print(' ');
-    }
-    Serial.print(buffer[i]);
-  }
-  Serial.println(">");
-}
-
 void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int length)
 {
   logMessage(topic, payload, length);
