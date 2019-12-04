@@ -346,6 +346,12 @@ void publishResponseDeviceState(OutputDevice_t *device, const vector<string> top
   mqttClient.publish(responseTopic, payload);
 }
 
+/**
+ * It replaces specific levels value "cmnd" => "resp".
+ * For example:
+ *  saartk/device/lamp/FFFFFFFFFFFF/cmnd/command/+
+ *  saartk/device/lamp/FFFFFFFFFFFF/resp/command/+
+ */
 char *createResponseTopic(char *buffer, const vector<string> topicTokens)
 {
   const size_t lenTok = topicTokens.size();
