@@ -83,10 +83,12 @@ const size_t calcOutputsArraySize()
   return JSON_ARRAY_SIZE(lenOutputs) + (lenOutputs * JSON_OBJECT_SIZE(2));
 }
 
-const char *wifiHelpGetStateTxt(int status)
+const char *wifiHelpGetStateTxt(int8_t status)
 {
   switch (status)
   {
+  case -1:
+    return "WL_CONNECTION_TIMEOUT"; // ESP8266 2.6.2, outside of enum, but value by library.
   case WL_IDLE_STATUS:
     return "WL_IDLE_STATUS";
   case WL_NO_SSID_AVAIL:

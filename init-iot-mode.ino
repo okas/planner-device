@@ -214,27 +214,16 @@ bool wsSetInitValuesCommonPhaseWiFi(const char *responseSubject, JsonObject payl
 {
   const char *ssid = payloadObj["ssid"];
   const char *psk = payloadObj["psk"];
-  wl_status_t wifiResult;
+  int8_t wifiResult;
   if (WiFi.SSID() == ssid && WiFi.status() == WL_CONNECTED)
   {
-    wsSetInitValuesHandleWifiMessaging(responseSubject, wifiResult);
+    wsSetInitValuesHandleWifiMessaging(responseSubject, WL_CONNECTED);
   }
   else
   {
-    wifiResult = WiFi.begin(ssid, psk);
-    for (size_t i = 0; i < 10; i++)
-    {
-      if (i)
-      {
-        delay(1000);
-        wifiResult = WiFi.status();
-      }
-      wsSetInitValuesHandleWifiMessaging(responseSubject, wifiResult);
-      if (wifiResult == WL_CONNECTED || wifiResult == WL_NO_SSID_AVAIL || wifiResult == WL_CONNECT_FAILED)
-      {
-        break;
-      }
-    }
+    WiFi.begin(ssid, psk);
+    wifiResult = WiFi.waitForConnectResult(10000);
+    wsSetInitValuesHandleWifiMessaging(responseSubject, wifiResult);
     if (wifiResult != WL_CONNECTED)
     {
       _initState = InitState_t::failed;
@@ -479,7 +468,7 @@ const size_t wsCalcResponseStateDetailsSize(size_t detailsCount)
   return wsCalcResponseBaseSize() + wsCalcStateDetailsSize(detailsCount);
 }
 
-void wsSetInitValuesHandleWifiMessaging(const char *responseSubject, wl_status_t wifiState)
+void wsSetInitValuesHandleWifiMessaging(const char *responseSubject, int8_t wifiState)
 {
   wsSetInitValuesHandleGenericMessaging(responseSubject, "wifi", wifiHelpGetStateTxt(wifiState));
 }
