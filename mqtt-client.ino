@@ -25,7 +25,7 @@ int8_t mqttIoTInit()
   {
     return 0;
   }
-  mqttInit();
+  mqttConfigIoTInit();
   int8_t err;
   if (err = mqttConnect(2))
   {
@@ -36,7 +36,7 @@ int8_t mqttIoTInit()
 
 void mqttNormalInit()
 {
-  mqttInit();
+  mqttConfigNormal();
   lwmqtt_return_code_t err;
   if (err = mqttConnect())
   {
@@ -46,14 +46,26 @@ void mqttNormalInit()
   mqttPublishPresentNormal();
 }
 
-void mqttInit()
+void mqttConfigIoTInit()
 {
-  mqttClient.begin(MQTT_SERVER, MQTT_PORT, espClient);
+  mqttClient.onMessageAdvanced(mqttMessageHandlerIoTInit);
+  mqttClient.setOptions(10, false, 1000);
+  mqttConfigCommon();
+}
+
+void mqttConfigNormal()
+{
+  mqttClient.onMessageAdvanced(mqttMessageHandlerNormal);
+  mqttConfigCommon();
+}
+
+void mqttConfigCommon()
+{
   char lastWillTopic[80];
   mqttGetSubscrForOther(lastWillTopic, nodeName, iotNodeId, "lost");
   Serial.printf("- - lastWillTopic is : \"%s\"\n", lastWillTopic);
   mqttClient.setWill(lastWillTopic);
-  mqttClient.onMessageAdvanced(mqttMessageHandler); // TODO check signatures
+  mqttClient.begin(MQTT_SERVER, MQTT_PORT, espClient);
 }
 
 lwmqtt_return_code_t mqttConnect(uint8_t limit)
@@ -231,7 +243,29 @@ void logMessage(char *topic, char *payload, int length)
   Serial.println("<<<<<");
 }
 
-void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int length)
+void mqttMessageHandlerIoTInit(MQTTClient *client, char *topic, char *payload, int length)
+{
+  logMessage(topic, payload, length);
+  // TODO fix all topic handling, its structure has changed!
+  // Todo take care of order of if-else ladder!
+  const vector<string> topicTokens = strsplit(topic, "/");
+  const size_t len = topicTokens.size();
+  if (len > 4 && topicTokens[4] == respInit)
+  { /* saartk/device/iotnode/FFFFFFFFFFFF/init-r */
+    wsHandleMQTTIoTNodeInitResponse(payload, length);
+  }
+  else if (len > 4 && topicTokens[4] == respInitUpdate)
+  { /* saartk/device/iotnode/FFFFFFFFFFFF/init-r */
+    wsHandleMQTTIoTNodeInitUpdateResponse(payload, length);
+  }
+  else
+  {
+    Serial.printf("- - Bad topic, unknown command! End handler.\n");
+    return;
+  }
+}
+
+void mqttMessageHandlerNormal(MQTTClient *client, char *topic, char *payload, int length)
 {
   logMessage(topic, payload, length);
   // TODO fix all topic handling, its structure has changed!
@@ -241,14 +275,6 @@ void mqttMessageHandler(MQTTClient *client, char *topic, char *payload, int leng
   if (len > 1 && topicTokens[1] == "api")
   { /* saartk/api/present */
     // ToDo: api present...
-  }
-  else if (len > 4 && topicTokens[4] == respInit)
-  { /* saartk/device/iotnode/FFFFFFFFFFFF/init-r */
-    wsHandleMQTTIoTNodeInitResponse(payload, length);
-  }
-  else if (len > 4 && topicTokens[4] == respInitUpdate)
-  { /* saartk/device/iotnode/FFFFFFFFFFFF/init-r */
-    wsHandleMQTTIoTNodeInitUpdateResponse(payload, length);
   }
   else if (len > 5 && topicTokens[4] == "cmnd" && topicTokens[5] == cmndState)
   { /* saartk/device/iotnode/FFFFFFFFFFFF/cmnd/command/+ */
