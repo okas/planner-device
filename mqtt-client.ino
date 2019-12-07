@@ -80,12 +80,11 @@ lwmqtt_return_code_t mqttConnect(uint8_t limit)
 
 lwmqtt_err_t mqttSubscriberIoTInit()
 {
-  char topics[2][80];
   lwmqtt_err_t err;
-  mqttGetSubscrForOther(topics[0], nodeName, iotNodeId, respInit);
-  mqttGetSubscrForOther(topics[1], nodeName, iotNodeId, respInitUpdate);
-  for (auto &&topic : topics)
+  for (auto &&type : {respInit, respInitUpdate})
   {
+    char topic[80];
+    mqttGetSubscrForOther(topic, nodeName, iotNodeId, type);
     Serial.printf("- - subscribing to Init* topic is : \"%s\"\n", topic);
     mqttClient.subscribe(topic);
     err = mqttClient.lastError();
@@ -135,6 +134,7 @@ const size_t mqttCalcInitPayloadSize()
 void mqttSubscriberNormal()
 {
   Serial.printf(" subscribing to following topics: \n");
+  const char *topicTypes[] = {cmndState, cmndSetState};
   for (OutputDevice_t &device : outDevices)
   {
     if (!strlen(device.usage))
@@ -143,8 +143,10 @@ void mqttSubscriberNormal()
     }
     char id[22];
     sprintf(id, "%llu", device.id);
-    mqttSubscribeOutputToCommand(device.usage, id, cmndSetState);
-    mqttSubscribeOutputToCommand(device.usage, id, cmndState);
+    for (auto &&type : topicTypes)
+    {
+      mqttSubscribeOutputToCommand(device.usage, id, type);
+    }
   }
   // TODO: subscribe to node topics?
   const char *topicApiPresent = "saartk/api/present";
@@ -316,7 +318,7 @@ OutputDevice_t *findOutputDevice(const char *id, bool &found)
 
 void publishResponseDeviceState(OutputDevice_t *device, const vector<string> topicTokens)
 {
-  char responseTopic[120] = {0};
+  char responseTopic[120]{0};
   createResponseTopic(responseTopic, topicTokens);
   char payload[9];
   snprintf(payload, sizeof(payload), "%.6f", device->state);
