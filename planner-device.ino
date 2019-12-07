@@ -67,10 +67,13 @@ void setup()
 {
   Serial.begin(115200);
   eepromInitialize();
+  if (_iotState == IOTState_t::initialized)
+  {
+    hwWriteStatesFromRAM();
+  }
   strncpy(iotNodeId, getWiFiMACHex(), sizeof(iotNodeId) - 1);
-  setupInitButton();
-  changeOutputStates();
   strncpy(wifiHostname, getWifiHostname(), sizeof(wifiHostname) - 1);
+  setupInitButton();
   WiFi.hostname(wifiHostname);
   // Decide when exactly need to go to the Init mode.
   if (_iotState == IOTState_t::initialized && wifiStationConnect())
@@ -103,6 +106,7 @@ void gotoOperatingMode()
 bool gotoIotInitMode()
 {
   Serial.println(" - - Going to Initialization Mode.");
+  hwOutputsTurnOffActive();
   startLEDBlinker();
   mqttClient.disconnect();
   if (_iotState == IOTState_t::initialized || _iotState == IOTState_t::operating)
