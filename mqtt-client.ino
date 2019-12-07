@@ -373,3 +373,15 @@ char *createResponseTopic(char *buffer, const vector<string> topicTokens)
   }
   return buffer;
 }
+
+void cleanupMqttInitMode()
+{
+  for (auto &&type : {respInit, respInitUpdate})
+  {
+    char topic[80];
+    mqttGetSubscrForOther(topic, nodeName, iotNodeId, type);
+    Serial.printf("- - unsubscribing from Init* topic is : \"%s\"\n", topic);
+    mqttClient.unsubscribe(topic);
+  }
+  mqttClient.disconnect();
+}

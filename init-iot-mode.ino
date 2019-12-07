@@ -63,9 +63,10 @@ void wsInit()
 
 bool endInitMode()
 {
-  webSocket.close();
   clearTempOutputs();
   clearPhase();
+  cleanupMqttInitMode();
+  webSocket.close();
   // TODO replace following with call to wifiStationConnect() ?
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
@@ -79,8 +80,8 @@ void webSocketEventHandler(uint8_t num, WStype_t type, uint8_t *payload, size_t 
   {
     if (_initState == InitState_t::succeed)
     {
-      Serial.printf(" - - In %fs leaving Initialization Mode.\n", leaveInitTimeout);
-      initMode_ticker.once(leaveInitTimeout, leaveIotInitMode);
+      Serial.printf(" - - Leaving Initialization Mode.\n");
+      leaveIotInitMode();
     }
     break;
   }
