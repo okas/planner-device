@@ -13,6 +13,7 @@ const char *cmndInit = "init";
 const char *respInit = "init-r";
 const char *cmndInitUpdate = "init-update";
 const char *respInitUpdate = "init-update-r";
+const char *logMessageBadTopic = "- - Bad topic, unknown command! End handler.\n";
 
 lwmqtt_return_code_t mqttConnect(uint8_t limit = 0);
 
@@ -255,12 +256,12 @@ void mqttMessageHandlerIoTInit(MQTTClient *client, char *topic, char *payload, i
     wsHandleMQTTIoTNodeInitResponse(payload, length);
   }
   else if (len > 4 && topicTokens[4] == respInitUpdate)
-  { /* saartk/device/iotnode/FFFFFFFFFFFF/init-r */
+  { /* saartk/device/iotnode/FFFFFFFFFFFF/init-update-r */
     wsHandleMQTTIoTNodeInitUpdateResponse(payload, length);
   }
   else
   {
-    Serial.printf("- - Bad topic, unknown command! End handler.\n");
+    Serial.printf(logMessageBadTopic);
     return;
   }
 }
@@ -286,7 +287,7 @@ void mqttMessageHandlerNormal(MQTTClient *client, char *topic, char *payload, in
   }
   else
   {
-    Serial.printf("- - Bad topic, unknown command! End handler.\n");
+    Serial.printf(logMessageBadTopic);
     return;
   }
 }
