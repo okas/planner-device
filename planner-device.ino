@@ -146,7 +146,5 @@ void loop()
   iot_start_init_loop();
   mqttClient.loop();
   delay(10); // <- fixes some issues with WiFi stability
-  /* TODO
-  Add Conditional loop for nly Init Mode time */
   webSocket.loop();
 }
