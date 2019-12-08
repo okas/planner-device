@@ -380,8 +380,30 @@ void cleanupMqttInitMode()
   {
     char topic[80];
     mqttGetSubscrForOther(topic, nodeName, iotNodeId, type);
-    Serial.printf("- - unsubscribing from Init* topic is : \"%s\"\n", topic);
+    Serial.printf("- - unsubscribing from Init* topic: \"%s\"\n", topic);
     mqttClient.unsubscribe(topic);
+  }
+  mqttClient.disconnect();
+}
+
+void cleanupMqttNormalMode()
+{
+  const char *topicTypes[] = {cmndState, cmndSetState};
+  for (OutputDevice_t &device : outDevices)
+  {
+    if (!strlen(device.usage))
+    {
+      continue;
+    }
+    char id[22];
+    sprintf(id, "%llu", device.id);
+    for (auto &&type : topicTypes)
+    {
+      char topicCommand[120];
+      mqttGetSubscrForCommand(topicCommand, device.usage, id, type);
+      mqttClient.subscribe(topicCommand);
+      Serial.printf("- - unsubscribing from output topic: \"%s\"\n", topicCommand);
+    }
   }
   mqttClient.disconnect();
 }

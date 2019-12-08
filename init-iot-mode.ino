@@ -21,6 +21,7 @@ JsonDocument wsCreateResponse(const size_t, const char *, bool details = true);
 bool startInitMode()
 {
   _initState = InitState_t::idle;
+  cleanupMqttNormalMode();
   boolean result = softAPInit();
   if (result)
   {

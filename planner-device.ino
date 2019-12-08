@@ -108,7 +108,6 @@ bool gotoIotInitMode()
   Serial.println(" - - Going to Initialization Mode.");
   hwOutputsTurnOffActive();
   startLEDBlinker();
-  mqttClient.disconnect();
   if (_iotState == IOTState_t::initialized || _iotState == IOTState_t::operating)
   {
     initMode_ticker.once(60, leaveIotInitMode);
