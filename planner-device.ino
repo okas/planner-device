@@ -35,7 +35,7 @@ enum IOTState_t : byte
   started = 0,
   initMode = 1,
   initialized = 2,
-  operating = 3
+  normalMode = 3
 };
 
 enum InitState_t : byte
@@ -100,7 +100,7 @@ void gotoOperatingMode()
 {
   mqttNormalInit();
   // TODO, what to do, when it fails to pass MQTT Notrlam mode init?
-  _iotState = IOTState_t::operating;
+  _iotState = IOTState_t::normalMode;
 }
 
 bool gotoIotInitMode()
@@ -108,7 +108,7 @@ bool gotoIotInitMode()
   Serial.println(" - - Going to Initialization Mode.");
   hwOutputsTurnOffActive();
   startLEDBlinker();
-  if (_iotState == IOTState_t::initialized || _iotState == IOTState_t::operating)
+  if (_iotState == IOTState_t::initialized || _iotState == IOTState_t::normalMode)
   {
     initMode_ticker.once(60, leaveIotInitMode);
   }
