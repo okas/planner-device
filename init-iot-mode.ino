@@ -216,26 +216,27 @@ bool wsSetInitValuesCommonPhaseWiFi(const char *responseSubject, JsonObject payl
 {
   const char *ssid = payloadObj["ssid"];
   const char *psk = payloadObj["psk"];
-  int8_t wifiResult;
   if (WiFi.SSID() == ssid && WiFi.status() == WL_CONNECTED)
   {
     wsSetInitValuesHandleWifiMessaging(responseSubject, WL_CONNECTED);
+    return true;
+  }
+  bool result;
+  WiFi.begin(ssid, psk);
+  int8_t wifiResult = WiFi.waitForConnectResult(10000);
+  if (wifiResult == WL_CONNECTED)
+  {
+    result = true;
   }
   else
   {
-    WiFi.begin(ssid, psk);
-    wifiResult = WiFi.waitForConnectResult(10000);
-    wsSetInitValuesHandleWifiMessaging(responseSubject, wifiResult);
-    if (wifiResult != WL_CONNECTED)
-    {
-      _initState = InitState_t::failed;
-      WiFi.setAutoReconnect(false);
-      return false;
-    }
+    _initState = InitState_t::failed;
+    WiFi.setAutoReconnect(false);
+    result = false;
   }
-  return true;
+  wsSetInitValuesHandleWifiMessaging(responseSubject, wifiResult);
+  return result;
 }
-
 bool wsSetInitValuesCommonPhaseMQTT(const char *responseSubject, JsonObject payloadObj, bool forUpdate)
 {
   int8_t mqttState = mqttIoTInit();
