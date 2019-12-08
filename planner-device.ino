@@ -134,24 +134,16 @@ void leaveIotInitMode()
   eepromIoTStateStore(_iotState);
   endInitMode();
   stopLEDBlinker(true);
-  // TODO restart ESP here in case of _iotState == IOTState_t::started?
+  if (_iotState == IOTState_t::initialized)
+  {
+    Serial.printf("~ ~ ~ ~ ~ GOTO OPERATING MODE: _iotState: %d\n", _iotState);
+    gotoOperatingMode();
+  }
 }
 
 void loop()
 {
   iot_start_init_loop();
-  /* TODO
-  Analyze correct logic.
-  It should differ between Normal and Init Modes! */
-  // int mqttState = mqttClient.state();
-  // switch (mqttState)
-  // {
-  // case MQTT_CONNECTED:
-  // case MQTT_DISCONNECTED:
-  //   break;
-  // default:
-  //   mqttNormalInit();
-  // }
   mqttClient.loop();
   delay(10); // <- fixes some issues with WiFi stability
   /* TODO
