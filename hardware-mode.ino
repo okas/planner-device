@@ -16,7 +16,7 @@ void ICACHE_RAM_ATTR init_button_change();
 void setupInitButton()
 {
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);
+  LEDoff();
   pinMode(FLASH_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(FLASH_PIN), init_button_change, CHANGE);
 }
@@ -49,7 +49,7 @@ void init_button_down()
     init_btn_timer_reached = true;
     Serial.println(" - - TIMER reached!");
   });
-  digitalWrite(LED_PIN, LOW);
+  LEDon();
   Serial.println("LED_BUILTIN ON");
 }
 
@@ -58,7 +58,7 @@ void init_button_up()
   init_btn_ticker.detach();
   if (!led_blinker_ticker.active())
   {
-    digitalWrite(LED_PIN, HIGH);
+    LEDoff();
     Serial.println("LED_BUILTIN OFF");
   }
 }
@@ -83,4 +83,19 @@ void stopLEDBlinker(bool off)
 {
   led_blinker_ticker.detach();
   digitalWrite(LED_PIN, off ? HIGH : LOW);
+}
+
+void LEDon()
+{
+  digitalWrite(LED_PIN, LOW);
+}
+
+void LEDon(int16_t val)
+{
+  analogWrite(LED_PIN, val);
+}
+
+void LEDoff()
+{
+  digitalWrite(LED_PIN, HIGH);
 }
