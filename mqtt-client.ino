@@ -82,6 +82,7 @@ lwmqtt_return_code_t mqttConnect(uint8_t limit)
     {
       break;
     }
+    mqttClient.disconnect();
     delay(2000);
   }
   if (result == LWMQTT_CONNECTION_ACCEPTED)
