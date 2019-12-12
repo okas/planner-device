@@ -76,9 +76,9 @@ lwmqtt_return_code_t mqttConnect(uint8_t limit)
   size_t i = 1;
   while ((mqttClient.connect(iotNodeId, mqttUser, mqttPassword), result = mqttClient.returnCode()))
   {
-    Serial.printf(R"( MQTT connection failed with error "%s")", mqttHelpGetStateTxt(result));
+    Serial.printf("MQTT connection failed with error (try: %d of %d) \"%s\"\n", i, limit, mqttHelpGetStateTxt(result));
     Serial.println();
-    if (limit && ++i > limit) //TODO put back pre-increment
+    if (limit && ++i > limit)
     {
       break;
     }
