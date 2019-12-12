@@ -323,8 +323,6 @@ void wsStoreOutputIdsToRAM(JsonArray outputs)
   for (size_t i = 0; i < lenOutputs; i++)
   {
     outDevices[i].id = outputs[i]["id"];
-    // TODO debug only!
-    Serial.printf("~ ~ ~ ~ ~ device.id: %llu\n", outDevices[i].id);
   }
 }
 
