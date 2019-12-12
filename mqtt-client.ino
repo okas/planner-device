@@ -36,8 +36,7 @@ int8_t mqttIoTInit()
 void mqttNormalInit()
 {
   mqttConfigNormal();
-  lwmqtt_return_code_t err;
-  if (err = mqttConnect())
+  if (mqttConnect() != LWMQTT_CONNECTION_ACCEPTED)
   {
     return;
   }
