@@ -84,7 +84,7 @@ void webSocketEventHandler(uint8_t num, WStype_t type, uint8_t *payload, size_t 
       Serial.printf(" - - Leaving Initialization Mode.\n");
       leaveIotInitMode();
     }
-    break;
+    return;
   }
   case WStype_CONNECTED: // if a new websocket connection is established
   {
@@ -95,12 +95,12 @@ void webSocketEventHandler(uint8_t num, WStype_t type, uint8_t *payload, size_t 
     }
     IPAddress ip = webSocket.remoteIP(num);
     Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
-    break;
+    return;
   }
   case WStype_TEXT: // if new text data is received
   {
     wsTXTMessageHandler(num, (char *)payload, lenght);
-    break;
+    return;
   }
   }
 }
