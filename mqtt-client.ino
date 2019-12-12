@@ -15,8 +15,6 @@ const char *cmndInitUpdate = "init-update";
 const char *respInitUpdate = "init-update-r";
 const char *logMessageBadTopic = "- - Bad topic, unknown command! End handler.\n";
 
-lwmqtt_return_code_t mqttConnect(uint8_t limit = 0);
-
 /* --- MQTT */
 
 int8_t mqttIoTInit()
@@ -68,6 +66,8 @@ void mqttConfigCommon()
   mqttClient.setWill(lastWillTopic);
   mqttClient.begin(MQTT_SERVER, MQTT_PORT, espClient);
 }
+
+lwmqtt_return_code_t mqttConnect() { return mqttConnect(0); }
 
 lwmqtt_return_code_t mqttConnect(uint8_t limit)
 {
