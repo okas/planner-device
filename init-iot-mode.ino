@@ -81,7 +81,6 @@ void webSocketEventHandler(uint8_t num, WStype_t type, uint8_t *payload, size_t 
   {
     if (_initState == InitState_t::succeed)
     {
-      Serial.printf(" - - Leaving Initialization Mode.\n");
       leaveIotInitMode();
     }
     return;
