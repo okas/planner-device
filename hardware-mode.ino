@@ -49,7 +49,6 @@ void init_button_down()
     init_btn_timer_reached = true;
     Serial.println(" - - TIMER reached!");
   });
-  LEDon();
   Serial.println("LED_BUILTIN ON");
 }
 
@@ -58,7 +57,6 @@ void init_button_up()
   init_btn_ticker.detach();
   if (!led_blinker_ticker.active())
   {
-    LEDoff();
     Serial.println("LED_BUILTIN OFF");
   }
 }
