@@ -141,10 +141,40 @@ void leaveIotInitMode()
   }
 }
 
+bool mqttLoopConnected;
+
 void loop()
 {
   iot_start_init_loop();
-  mqttClient.loop();
+  mqttLoopConnected = mqttClient.loop();
   delay(10); // <- fixes some issues with WiFi stability
-  webSocket.loop();
+  switch (_iotState)
+  {
+  case IOTState_t::initialized:
+  case IOTState_t::normalMode:
+  {
+    if (WiFi.isConnected())
+    {
+      LEDoff();
+      if (!mqttLoopConnected)
+      {
+        // Limit to one try to not to block loop too long.
+        if (mqttConnect(1) == LWMQTT_CONNECTION_ACCEPTED)
+        {
+          mqttPublishPresentNormal();
+        }
+      }
+    }
+    else
+    {
+      LEDon(1000);
+    }
+    break;
+  }
+  case IOTState_t::initMode:
+  {
+    webSocket.loop();
+    break;
+  }
+  }
 }
