@@ -71,28 +71,20 @@ void setup()
   {
     hwWriteStatesFromRAM();
   }
+  setupInitButton();
   strncpy(iotNodeId, getWiFiMACHex(), sizeof(iotNodeId) - 1);
   strncpy(wifiHostname, getWifiHostname(), sizeof(wifiHostname) - 1);
-  setupInitButton();
   WiFi.hostname(wifiHostname);
-  // Decide when exactly need to go to the Init mode.
-  if (_iotState == IOTState_t::initialized && wifiStationConnect())
-  { /* Normal, initialization is done, and WiFi work. */
+  // TODO refactor to loop(), otherwize it cna lock down thing, cannot go to InitMode by button.
+  if (_iotState == IOTState_t::initialized)
+  { /* Normal, initialization is done */
     Serial.printf("~ ~ ~ ~ ~ GOTO OPERATING MODE: _iotState: %d\n", _iotState);
     gotoOperatingMode();
   }
-  else if (_iotState == IOTState_t::started || _iotState == IOTState_t::initMode)
+  else
   { /* IoT node need initialization. */
     Serial.printf("~ ~ ~ ~ ~ GOTO INIT MODE: _iotState: %d\n", _iotState);
     gotoIotInitMode();
-  }
-  else
-  { /* WiFi connection failure, but initialized */
-    Serial.printf("~ ~ ~ ~ ~ GOTO IDLE!!: _iotState: %d\n", _iotState);
-
-    // WiFi.disconnect();
-    // startLEDBlinker();
-    // gotoIotInitMode();
   }
 }
 
