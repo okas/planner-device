@@ -63,29 +63,25 @@ WiFiClient espClient;
 MQTTClient mqttClient(1024);
 WebSocketsServer webSocket(81);
 
+bool (*funcGoToMode)();
+
 void setup()
 {
   Serial.begin(115200);
   eepromInitialize();
   if (_iotState == IOTState_t::initialized)
-  {
+  { /* Normal, initialization is done */
     hwWriteStatesFromRAM();
+    funcGoToMode = &gotoOperatingMode;
+  }
+  else
+  { /* IoT node need initialization. */
+    funcGoToMode = &gotoIotInitMode;
   }
   setupInitButton();
   strncpy(iotNodeId, getWiFiMACHex(), sizeof(iotNodeId) - 1);
   strncpy(wifiHostname, getWifiHostname(), sizeof(wifiHostname) - 1);
   WiFi.hostname(wifiHostname);
-  // TODO refactor to loop(), otherwize it cna lock down thing, cannot go to InitMode by button.
-  if (_iotState == IOTState_t::initialized)
-  { /* Normal, initialization is done */
-    Serial.printf("~ ~ ~ ~ ~ GOTO OPERATING MODE: _iotState: %d\n", _iotState);
-    gotoOperatingMode();
-  }
-  else
-  { /* IoT node need initialization. */
-    Serial.printf("~ ~ ~ ~ ~ GOTO INIT MODE: _iotState: %d\n", _iotState);
-    gotoIotInitMode();
-  }
 }
 
 void gotoOperatingMode()
@@ -138,6 +134,11 @@ bool mqttLoopConnected;
 void loop()
 {
   iot_start_init_loop();
+  if (funcGoToMode)
+  {
+    funcGoToMode();
+    funcGoToMode = nullptr;
+  }
   mqttLoopConnected = mqttClient.loop();
   delay(10); // <- fixes some issues with WiFi stability
   switch (_iotState)
