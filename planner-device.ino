@@ -53,6 +53,7 @@ uint8_t _isEEPROMInit;
 IOTState_t _iotState;
 InitState_t _initState;
 Ticker initMode_ticker;
+WiFiEventHandler stationGotIpHandler, stationDisconnectedHandler;
 
 OutputDevice_t outDevices[] = {{.pin = 5}, {.pin = 4}};
 const size_t lenOutputs = sizeof(outDevices) / sizeof(OutputDevice_t);
@@ -64,6 +65,17 @@ MQTTClient mqttClient(1024);
 WebSocketsServer webSocket(81);
 
 bool (*funcGoToMode)();
+
+void wifiEventIoTModeBasedLEDoff(const WiFiEventStationModeGotIP &event)
+{
+  if (_iotState == IOTState_t::initialized || _iotState == IOTState_t::normalMode)
+    LEDoff();
+}
+void wifiEventIoTModeBasedLEDon(const WiFiEventStationModeDisconnected &event)
+{
+  if (_iotState == IOTState_t::initialized || _iotState == IOTState_t::normalMode)
+    LEDon(1000);
+}
 
 void setup()
 {
@@ -82,6 +94,8 @@ void setup()
   strncpy(iotNodeId, getWiFiMACHex(), sizeof(iotNodeId) - 1);
   strncpy(wifiHostname, getWifiHostname(), sizeof(wifiHostname) - 1);
   WiFi.hostname(wifiHostname);
+  stationGotIpHandler = WiFi.onStationModeGotIP(&wifiEventIoTModeBasedLEDoff);
+  stationDisconnectedHandler = WiFi.onStationModeDisconnected(&wifiEventIoTModeBasedLEDon);
 }
 
 void gotoOperatingMode()
@@ -147,21 +161,9 @@ void loop()
   case IOTState_t::normalMode:
   {
     if (WiFi.isConnected())
-    {
-      LEDoff();
       if (!mqttLoopConnected)
-      {
-        // Limit to one try to not to block loop too long.
-        if (mqttConnect(1) == LWMQTT_CONNECTION_ACCEPTED)
-        {
+        if (mqttConnect(1) == LWMQTT_CONNECTION_ACCEPTED) // Limit to one try to not to block loop too long.
           mqttPublishPresentNormal();
-        }
-      }
-    }
-    else
-    {
-      LEDon(1000);
-    }
     break;
   }
   case IOTState_t::initMode:
