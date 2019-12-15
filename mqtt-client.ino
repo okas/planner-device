@@ -73,7 +73,7 @@ lwmqtt_return_code_t mqttConnect(uint8_t limit)
   Serial.println(" Connecting to MQTT...");
   lwmqtt_return_code_t result = LWMQTT_UNKNOWN_RETURN_CODE;
   size_t i = 1;
-  while ((mqttClient.connect(iotNodeId, mqttUser, mqttPassword), result = mqttClient.returnCode()))
+  while ((mqttClient.connect(iotNodeId, mqttUser, mqttPassword, false), result = mqttClient.returnCode()))
   {
     Serial.printf("MQTT connection failed with error (try: %d of %d) \"%s\"\n", i, limit, mqttHelpGetStateTxt(result));
     Serial.println();
@@ -81,7 +81,6 @@ lwmqtt_return_code_t mqttConnect(uint8_t limit)
     {
       break;
     }
-    mqttClient.disconnect();
     delay(2000);
   }
   if (result == LWMQTT_CONNECTION_ACCEPTED)
