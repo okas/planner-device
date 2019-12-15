@@ -80,6 +80,7 @@ void wifiEventIoTModeBasedLEDon(const WiFiEventStationModeDisconnected &event)
 void setup()
 {
   Serial.begin(115200);
+  hwLEDSetup(1000);
   eepromInitialize();
   if (_iotState == IOTState_t::initialized)
   { /* Normal, initialization is done */
@@ -90,12 +91,12 @@ void setup()
   { /* IoT node need initialization. */
     funcGoToMode = &gotoIotInitMode;
   }
-  setupInitButton();
   strncpy(iotNodeId, getWiFiMACHex(), sizeof(iotNodeId) - 1);
   strncpy(wifiHostname, getWifiHostname(), sizeof(wifiHostname) - 1);
   WiFi.hostname(wifiHostname);
   stationGotIpHandler = WiFi.onStationModeGotIP(&wifiEventIoTModeBasedLEDoff);
   stationDisconnectedHandler = WiFi.onStationModeDisconnected(&wifiEventIoTModeBasedLEDon);
+  hwButtonSetup();
 }
 
 void gotoOperatingMode()

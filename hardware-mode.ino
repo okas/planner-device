@@ -13,12 +13,16 @@ void ICACHE_RAM_ATTR init_button_change();
 
 /* -- Initialization button */
 
-void setupInitButton()
+void hwButtonSetup()
 {
-  pinMode(LED_PIN, OUTPUT);
-  LEDoff();
   pinMode(FLASH_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(FLASH_PIN), init_button_change, CHANGE);
+}
+
+void hwLEDSetup(int16_t value)
+{
+  pinMode(LED_PIN, OUTPUT);
+  LEDon(value);
 }
 
 void ICACHE_RAM_ATTR init_button_change()
